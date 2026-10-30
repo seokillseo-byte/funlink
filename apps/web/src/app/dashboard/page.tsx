@@ -1,0 +1,1 @@
+import Link from "next/link";export const metadata={title:"Customer Dashboard | FunLink",robots:{index:false,follow:false}};export default function Dashboard(){return <main className="authPage"><section className="authCard"><h1>Customer Dashboard</h1><p>Không gian làm việc khách hàng.</p><Link href="/profile">Hồ sơ cá nhân →</Link></section></main>}
