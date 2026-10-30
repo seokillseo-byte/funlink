@@ -1,0 +1,27 @@
+name: UI preview validation
+
+on:
+  pull_request:
+    paths:
+      - "preview/**"
+      - ".github/workflows/ui-preview-validation.yml"
+  push:
+    branches:
+      - "preview/**"
+    paths:
+      - "preview/**"
+      - ".github/workflows/ui-preview-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate complete UI preview structure
+        run: node scripts/preview/check-funlink-preview.mjs
