@@ -82,7 +82,7 @@ test("workspace member endpoint requires an authenticated workspace administrato
 });
 
 
-function workspacePrisma(role: string | null, overrides: Record<string, unknown> = {}) {
+function workspacePrisma(role: string | null, overrides: Record<string, unknown> = {}, updateCount = 1) {
   const membership = role ? { role, tenant: { id: "tenant-1", name: "Test workspace", slug: "test", status: "ACTIVE" } } : null;
   const session = {
     revokedAt: null,
@@ -102,7 +102,7 @@ function workspacePrisma(role: string | null, overrides: Record<string, unknown>
     },
     $transaction: async (callback: (tx: any) => Promise<unknown>) => callback({
       tenantMember: {
-        update: async ({ data }: any) => ({ id: "member-2", role: data.role, userId: "user-2" }),
+        updateMany: async () => ({ count: updateCount }),
         deleteMany: async () => ({ count: 1 })
       },
       auditLog: { create: async () => ({ id: "audit-1" }) }
@@ -172,6 +172,47 @@ test("workspace role update requires OWNER to promote ADMIN", async () => {
   assert.equal(allowed.statusCode, 200);
   assert.equal(allowed.json().member.role, "ADMIN");
   await ownerApp.close();
+});
+
+test("workspace role update returns conflict if target became OWNER concurrently", async () => {
+  const app = buildApp({ config, logger: false, prisma: workspacePrisma("OWNER", {
+    findFirst: async () => ({ id: "member-2", role: "ADMIN", userId: "user-2" })
+  }, 0) });
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/v1/workspaces/tenant-1/members/member-2",
+    headers: { cookie: sessionCookie, "content-type": "application/json" },
+    payload: { role: "MEMBER" }
+  });
+  assert.equal(response.statusCode, 409);
+  await app.close();
+});
+
+test("workspace owner cannot be removed", async () => {
+  const app = buildApp({ config, logger: false, prisma: workspacePrisma("OWNER", {
+    findFirst: async () => ({ id: "owner-member", role: "OWNER", userId: "user-owner" })
+  }) });
+  const response = await app.inject({
+    method: "DELETE",
+    url: "/v1/workspaces/tenant-1/members/owner-member",
+    headers: { cookie: sessionCookie }
+  });
+  assert.equal(response.statusCode, 403);
+  await app.close();
+});
+
+test("workspace administrator can remove a non-owner member", async () => {
+  const app = buildApp({ config, logger: false, prisma: workspacePrisma("ADMIN", {
+    findFirst: async () => ({ id: "member-2", role: "MEMBER", userId: "user-2" })
+  }) });
+  const response = await app.inject({
+    method: "DELETE",
+    url: "/v1/workspaces/tenant-1/members/member-2",
+    headers: { cookie: sessionCookie }
+  });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { ok: true });
+  await app.close();
 });
 
 
