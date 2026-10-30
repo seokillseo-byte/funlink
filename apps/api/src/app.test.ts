@@ -43,3 +43,16 @@ test("GET /ready returns 503 when database probe fails", async () => {
 test("invalid API port is rejected", () => {
   assert.throws(() => loadConfig({ API_PORT: "70000" }), /Invalid API environment/);
 });
+
+test("state-changing requests reject an untrusted Origin", async () => {
+  const app = buildApp({ config, logger: false });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/auth/login",
+    headers: { origin: "https://attacker.example", "content-type": "application/json" },
+    payload: { email: "test@example.com", password: "not-a-real-password" }
+  });
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(response.json(), { error: "Request origin is not allowed" });
+  await app.close();
+});
