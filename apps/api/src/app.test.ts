@@ -173,3 +173,93 @@ test("workspace role update requires OWNER to promote ADMIN", async () => {
   assert.equal(allowed.json().member.role, "ADMIN");
   await ownerApp.close();
 });
+
+
+function invitationPrisma(userEmail: string, claimCount = 1) {
+  const rawToken = "test-invitation-token-1234567890";
+  const session = {
+    revokedAt: null,
+    expiresAt: new Date(Date.now() + 60_000),
+    user: {
+      id: "user-invitee",
+      email: userEmail,
+      status: "ACTIVE",
+      emailVerifiedAt: new Date()
+    }
+  };
+  const invitation = {
+    id: "invite-1",
+    tenantId: "tenant-1",
+    email: "invitee@example.com",
+    role: "MEMBER",
+    acceptedAt: null,
+    revokedAt: null,
+    expiresAt: new Date(Date.now() + 60_000),
+    tenant: { id: "tenant-1", status: "ACTIVE" }
+  };
+  let accepted = false;
+  return {
+    rawToken,
+    get accepted() { return accepted; },
+    prisma: {
+      session: { findUnique: async () => session },
+      workspaceInvitation: {
+        findUnique: async () => invitation
+      },
+      $transaction: async (callback: (tx: any) => Promise<unknown>) => callback({
+        workspaceInvitation: {
+          updateMany: async () => {
+            if (claimCount !== 1 || accepted) return { count: 0 };
+            accepted = true;
+            return { count: 1 };
+          }
+        },
+        tenantMember: {
+          upsert: async () => ({ id: "membership-1" })
+        }
+      })
+    } as unknown as PrismaClient
+  };
+}
+
+test("workspace invitation cannot be accepted by a different email address", async () => {
+  const fixture = invitationPrisma("attacker@example.com");
+  const app = buildApp({ config, logger: false, prisma: fixture.prisma });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/workspace-invitations/accept",
+    headers: { cookie: sessionCookie, "content-type": "application/json" },
+    payload: { token: fixture.rawToken }
+  });
+  assert.equal(response.statusCode, 403);
+  assert.equal(fixture.accepted, false);
+  await app.close();
+});
+
+test("workspace invitation is claimed once before membership is created", async () => {
+  const fixture = invitationPrisma("invitee@example.com");
+  const app = buildApp({ config, logger: false, prisma: fixture.prisma });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/workspace-invitations/accept",
+    headers: { cookie: sessionCookie, "content-type": "application/json" },
+    payload: { token: fixture.rawToken }
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().tenantId, "tenant-1");
+  assert.equal(fixture.accepted, true);
+  await app.close();
+});
+
+test("workspace invitation returns conflict when another request already claimed it", async () => {
+  const fixture = invitationPrisma("invitee@example.com", 0);
+  const app = buildApp({ config, logger: false, prisma: fixture.prisma });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/workspace-invitations/accept",
+    headers: { cookie: sessionCookie, "content-type": "application/json" },
+    payload: { token: fixture.rawToken }
+  });
+  assert.equal(response.statusCode, 409);
+  await app.close();
+});
