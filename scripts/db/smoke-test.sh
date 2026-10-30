@@ -11,7 +11,7 @@ if [ "$table_count" -lt 20 ]; then
   exit 1
 fi
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+psql "$PSQL_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO "Tenant" ("id","name","slug","updatedAt")
 VALUES ('tenant_a','Tenant A','tenant-a',NOW()), ('tenant_b','Tenant B','tenant-b',NOW());
 
