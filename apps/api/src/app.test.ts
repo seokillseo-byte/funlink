@@ -56,3 +56,27 @@ test("state-changing requests reject an untrusted Origin", async () => {
   assert.deepEqual(response.json(), { error: "Request origin is not allowed" });
   await app.close();
 });
+
+test("workspace endpoints do not reveal workspace data without a valid session", async () => {
+  const prisma = {
+    session: { findUnique: async () => null }
+  } as unknown as PrismaClient;
+  const app = buildApp({ config, logger: false, prisma });
+  const workspace = await app.inject({ method: "GET", url: "/v1/workspaces/tenant-secret" });
+  const members = await app.inject({ method: "GET", url: "/v1/workspaces/tenant-secret/members" });
+  assert.equal(workspace.statusCode, 404);
+  assert.deepEqual(workspace.json(), { error: "Workspace not found" });
+  assert.equal(members.statusCode, 404);
+  assert.deepEqual(members.json(), { error: "Workspace not found" });
+  await app.close();
+});
+
+test("workspace member endpoint requires an authenticated workspace administrator", async () => {
+  const prisma = {
+    session: { findUnique: async () => null }
+  } as unknown as PrismaClient;
+  const app = buildApp({ config, logger: false, prisma });
+  const response = await app.inject({ method: "GET", url: "/v1/workspaces/tenant-secret/members", headers: { cookie: "funlink_session=invalid" } });
+  assert.equal(response.statusCode, 404);
+  await app.close();
+});
