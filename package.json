@@ -18,7 +18,10 @@
     "api:dev": "pnpm --filter @funlink/api dev",
     "api:build": "pnpm --filter @funlink/api build",
     "api:typecheck": "pnpm --filter @funlink/api typecheck",
-    "api:test": "pnpm --filter @funlink/api test"
+    "api:test": "pnpm --filter @funlink/api test",
+    "web:dev": "pnpm --filter @funlink/web dev",
+    "web:build": "pnpm --filter @funlink/web build",
+    "web:typecheck": "pnpm --filter @funlink/web typecheck"
   },
   "devDependencies": {
     "prisma": "6.19.0"
