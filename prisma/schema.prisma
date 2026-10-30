@@ -7,18 +7,81 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserStatus { ACTIVE SUSPENDED DELETED }
-enum TenantStatus { ACTIVE SUSPENDED CLOSED }
-enum TenantRole { OWNER ADMIN MEMBER BILLING VIEWER }
-enum LinkStatus { ACTIVE PAUSED ARCHIVED }
-enum DomainStatus { PENDING_VERIFICATION VERIFIED ROUTING_PENDING ACTIVE SUSPENDED FAILED }
-enum TlsStatus { NOT_CONFIGURED PENDING ACTIVE FAILED }
-enum SubscriptionStatus { INCOMPLETE TRIALING ACTIVE PAST_DUE CANCELED EXPIRED }
-enum InvoiceStatus { DRAFT OPEN PAID VOID UNCOLLECTIBLE }
-enum PaymentStatus { PENDING SUCCEEDED FAILED REFUNDED CANCELED }
-enum PlanInterval { MONTH YEAR }
-enum PostStatus { DRAFT SCHEDULED PUBLISHED ARCHIVED }
-enum WebhookProcessingStatus { RECEIVED VERIFIED PROCESSING PROCESSED FAILED }
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+enum TenantRole {
+  OWNER
+  ADMIN
+  MEMBER
+  BILLING
+  VIEWER
+}
+enum LinkStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+enum DomainStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  ROUTING_PENDING
+  ACTIVE
+  SUSPENDED
+  FAILED
+}
+enum TlsStatus {
+  NOT_CONFIGURED
+  PENDING
+  ACTIVE
+  FAILED
+}
+enum SubscriptionStatus {
+  INCOMPLETE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+enum PlanInterval {
+  MONTH
+  YEAR
+}
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+enum WebhookProcessingStatus {
+  RECEIVED
+  VERIFIED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
 
 model User {
   id String @id @default(cuid())
