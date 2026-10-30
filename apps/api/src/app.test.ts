@@ -315,8 +315,8 @@ test("GET /v1/auth/me clears a stale cookie when the session no longer exists", 
     headers: { cookie: sessionCookie }
   });
   assert.equal(response.statusCode, 401);
-  assert.match(response.headers["set-cookie"] ?? "", /funlink_session=/);
-  assert.match(response.headers["set-cookie"] ?? "", /Max-Age=0/i);
+  assert.match([].concat(response.headers["set-cookie"] ?? []).join("; "), /funlink_session=/);
+  assert.match([].concat(response.headers["set-cookie"] ?? []).join("; "), /Max-Age=0/i);
   await app.close();
 });
 
@@ -336,7 +336,7 @@ test("GET /v1/auth/me clears a cookie for revoked, expired, disabled or unverifi
       headers: { cookie: sessionCookie }
     });
     assert.equal(response.statusCode, 401, item.name);
-    assert.match(response.headers["set-cookie"] ?? "", /Max-Age=0/i, item.name);
+    assert.match([].concat(response.headers["set-cookie"] ?? []).join("; "), /Max-Age=0/i, item.name);
     await app.close();
   }
 });
