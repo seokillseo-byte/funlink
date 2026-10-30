@@ -110,7 +110,7 @@ export function authRoutes(app:FastifyInstance,db:PrismaClient){
  app.get("/v1/auth/me",async(req,reply)=>{
   const raw=req.cookies.funlink_session;if(!raw)return reply.code(401).send({error:"Authentication required"});
   const session=await db.session.findUnique({where:{tokenHash:sha(raw)},include:{user:{select:{id:true,email:true,displayName:true,status:true,emailVerifiedAt:true,memberships:{include:{tenant:{select:{id:true,name:true,slug:true,status:true}}}}}}}});
-  if(!session||session.revokedAt||session.expiresAt<=new Date()||session.user.status!=="ACTIVE"||!session.user.emailVerifiedAt)return reply.code(401).send({error:"Session expired"});
+  if(!session||session.revokedAt||session.expiresAt<=new Date()||session.user.status!=="ACTIVE"||!session.user.emailVerifiedAt){reply.clearCookie("funlink_session",{path:"/"});return reply.code(401).send({error:"Session expired"});}
   return {user:{id:session.user.id,email:session.user.email,displayName:session.user.displayName},workspaces:session.user.memberships.filter(m=>m.tenant.status==="ACTIVE").map(m=>({id:m.tenant.id,name:m.tenant.name,slug:m.tenant.slug,role:m.role}))};
  });
 }
