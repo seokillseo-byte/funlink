@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import type { PrismaClient } from "@prisma/client";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 
@@ -22,7 +23,8 @@ test("GET /ready returns 503 when database is not configured", async () => {
 });
 
 test("GET /ready succeeds when database probe succeeds", async () => {
-  const app = buildApp({ config, logger: false, prisma: { async $queryRaw<T>() { return [{ result: 1 }] as T; } } });
+  const prisma = { async $queryRaw<T>() { return [{ result: 1 }] as T; } } as unknown as PrismaClient;
+  const app = buildApp({ config, logger: false, prisma });
   const response = await app.inject({ method: "GET", url: "/ready" });
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), { status: "ready", checks: { database: "ok" } });
@@ -30,7 +32,8 @@ test("GET /ready succeeds when database probe succeeds", async () => {
 });
 
 test("GET /ready returns 503 when database probe fails", async () => {
-  const app = buildApp({ config, logger: false, prisma: { $queryRaw: async () => { throw new Error("offline"); } } });
+  const prisma = { $queryRaw: async () => { throw new Error("offline"); } } as unknown as PrismaClient;
+  const app = buildApp({ config, logger: false, prisma });
   const response = await app.inject({ method: "GET", url: "/ready" });
   assert.equal(response.statusCode, 503);
   assert.equal(response.json().checks.database, "error");
