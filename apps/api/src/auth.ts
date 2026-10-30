@@ -62,14 +62,15 @@ export function authRoutes(app:FastifyInstance,db:PrismaClient){
   const parsed=z.object({token:z.string().min(20).max(200)}).safeParse(req.body);if(!parsed.success)return reply.code(400).send({error:"Invalid verification token"});
   const record=await db.authToken.findUnique({where:{tokenHash:sha(parsed.data.token)},include:{user:true}});
   if(!record||record.purpose!=="EMAIL_VERIFICATION"||record.usedAt||record.expiresAt<=new Date())return reply.code(400).send({error:"Verification link is invalid or expired"});
-  await db.$transaction([db.user.update({where:{id:record.userId},data:{emailVerifiedAt:new Date()}}),db.authToken.update({where:{id:record.id},data:{usedAt:new Date()}})]);
+  const now=new Date();const consumed=await db.$transaction(async tx=>{const claim=await tx.authToken.updateMany({where:{id:record.id,purpose:"EMAIL_VERIFICATION",usedAt:null,expiresAt:{gt:now}},data:{usedAt:now}});if(claim.count!==1)return false;await tx.user.update({where:{id:record.userId},data:{emailVerifiedAt:now}});return true;});
+  if(!consumed)return reply.code(400).send({error:"Verification link is invalid, expired, or already used"});
   return {ok:true,message:"Email verified. You can now sign in."};
  });
  app.post("/v1/auth/resend-verification",async(req,reply)=>{
   if(rateLimited("resend:"+clientKey(req),3))return reply.code(429).send({error:"Too many requests. Try again later."});
   const parsed=z.object({email:z.string().email().max(254).transform(s=>s.toLowerCase())}).safeParse(req.body);if(!parsed.success)return reply.code(400).send({error:"Invalid email"});
   const user=await db.user.findUnique({where:{email:parsed.data.email}});
-  if(user&&!user.emailVerifiedAt){const raw=await issueToken(db,user.id,"EMAIL_VERIFICATION",24*60*60*1000);try{await deliverToken(user.email,raw,"verify")}catch(e){req.log.error({err:e},"Verification email delivery failed");return reply.code(503).send({error:"Email delivery is unavailable. Try again later."});}}
+  if(user&&!user.emailVerifiedAt){try{const raw=await issueToken(db,user.id,"EMAIL_VERIFICATION",24*60*60*1000);await deliverToken(user.email,raw,"verify")}catch(e){req.log.error({err:e},"Verification email delivery failed");}}
   return {ok:true,message:"If the account requires verification, an email will be sent."};
  });
  app.post("/v1/auth/forgot-password",async(req,reply)=>{
@@ -85,7 +86,8 @@ export function authRoutes(app:FastifyInstance,db:PrismaClient){
   const record=await db.authToken.findUnique({where:{tokenHash:sha(parsed.data.token)}});
   if(!record||record.purpose!=="PASSWORD_RESET"||record.usedAt||record.expiresAt<=new Date())return reply.code(400).send({error:"Reset link is invalid or expired"});
   const hash=await passwordHash(parsed.data.password),now=new Date();
-  await db.$transaction([db.user.update({where:{id:record.userId},data:{passwordHash:hash}}),db.authToken.update({where:{id:record.id},data:{usedAt:now}}),db.session.updateMany({where:{userId:record.userId,revokedAt:null},data:{revokedAt:now}})]);
+  const consumed=await db.$transaction(async tx=>{const claim=await tx.authToken.updateMany({where:{id:record.id,purpose:"PASSWORD_RESET",usedAt:null,expiresAt:{gt:now}},data:{usedAt:now}});if(claim.count!==1)return false;await tx.user.update({where:{id:record.userId},data:{passwordHash:hash}});await tx.session.updateMany({where:{userId:record.userId,revokedAt:null},data:{revokedAt:now}});return true;});
+  if(!consumed)return reply.code(400).send({error:"Reset link is invalid, expired, or already used"});
   reply.clearCookie("funlink_session",{path:"/"});
   return {ok:true,message:"Password updated. Sign in with your new password."};
  });
