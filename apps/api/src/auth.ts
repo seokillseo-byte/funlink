@@ -56,7 +56,7 @@ export function authRoutes(app:FastifyInstance,db:PrismaClient){
    try{await deliverToken(email,token.raw,"verify");}
    catch(error){req.log.error({err:error},"Verification email delivery failed");return reply.code(503).send({error:"Account created, but verification email could not be sent. Configure email and use resend verification."});}
    return reply.code(201).send({verificationRequired:true,message:"Check your email to verify your account.",email:token.user.email});
-  }catch(error){if(error instanceof Error&&error.message==="ACCOUNT_EXISTS")return reply.code(409).send({error:"Account already exists"});req.log.error({err:error},"Registration failed");return reply.code(500).send({error:"Could not create account"});}
+  }catch(error){if(error instanceof Error&&error.message==="ACCOUNT_EXISTS"||(typeof error==="object"&&error!==null&&"code" in error&&error.code==="P2002"))return reply.code(409).send({error:"Account already exists"});req.log.error({err:error},"Registration failed");return reply.code(500).send({error:"Could not create account"});}
  });
  app.post("/v1/auth/verify-email",async(req,reply)=>{
   const parsed=z.object({token:z.string().min(20).max(200)}).safeParse(req.body);if(!parsed.success)return reply.code(400).send({error:"Invalid verification token"});
