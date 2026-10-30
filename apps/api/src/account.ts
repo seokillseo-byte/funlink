@@ -1,4 +1,4 @@
-import {createHash} from "node:crypto";
+import {createHash,randomBytes} from "node:crypto";
 import type {FastifyInstance} from "fastify";
 import {Prisma,type PrismaClient} from "@prisma/client";
 import {z} from "zod";
