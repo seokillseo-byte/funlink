@@ -1,44 +1,8 @@
-import Fastify, { type FastifyInstance } from "fastify";
-import type { ApiConfig } from "./config.js";
-
-export interface ReadinessDatabase {
-  $queryRaw<T = unknown>(query: TemplateStringsArray): Promise<T>;
-}
-
-export interface BuildAppOptions {
-  config: ApiConfig;
-  prisma?: ReadinessDatabase;
-  logger?: boolean;
-}
-
-export function buildApp(options: BuildAppOptions): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? options.config.NODE_ENV !== "test" });
-
-  app.get("/health", async () => ({ status: "ok", service: "funlink-api" }));
-
-  app.get("/ready", async (_request, reply) => {
-    if (!options.prisma) {
-      return reply.code(503).send({ status: "not_ready", checks: { database: "not_configured" } });
-    }
-    try {
-      await options.prisma.$queryRaw`SELECT 1`;
-      return { status: "ready", checks: { database: "ok" } };
-    } catch (error) {
-      requestLog(app, error);
-      return reply.code(503).send({ status: "not_ready", checks: { database: "error" } });
-    }
-  });
-
-  app.setErrorHandler((error, _request, reply) => {
-    app.log.error({ err: error }, "Unhandled API error");
-    const knownError = error as Error & { statusCode?: number };
-    const statusCode = knownError.statusCode && knownError.statusCode >= 400 && knownError.statusCode < 600 ? knownError.statusCode : 500;
-    return reply.code(statusCode).send({ error: statusCode >= 500 ? "Internal server error" : knownError.message });
-  });
-
-  return app;
-}
-
-function requestLog(app: FastifyInstance, error: unknown): void {
-  app.log.error({ err: error }, "Readiness database check failed");
-}
+import Fastify,{type FastifyInstance} from "fastify";
+import cookie from "@fastify/cookie";
+import type {ApiConfig} from "./config.js";
+import type {PrismaClient} from "@prisma/client";
+import {authRoutes} from "./auth.js";
+export interface ReadinessDatabase{$queryRaw<T=unknown>(query:TemplateStringsArray):Promise<T>}
+export interface BuildAppOptions{config:ApiConfig;prisma?:(ReadinessDatabase&Partial<PrismaClient>);logger?:boolean}
+export function buildApp(options:BuildAppOptions):FastifyInstance{const app=Fastify({logger:options.logger??options.config.NODE_ENV!=="test"});app.register(cookie);app.get("/health",async()=>({status:"ok",service:"funlink-api"}));app.get("/ready",async(_q,r)=>{if(!options.prisma)return r.code(503).send({status:"not_ready",checks:{database:"not_configured"}});try{await options.prisma.$queryRaw`SELECT 1`;return {status:"ready",checks:{database:"ok"}}}catch(e){app.log.error({err:e},"Database readiness failed");return r.code(503).send({status:"not_ready",checks:{database:"error"}})}});if(options.prisma)authRoutes(app,options.prisma as PrismaClient);app.setErrorHandler((e,_q,r)=>{app.log.error({err:e},"Unhandled API error");const s=(e as Error&{statusCode?:number}).statusCode??500;return r.code(s).send({error:s>=500?"Internal server error":e.message})});return app}
