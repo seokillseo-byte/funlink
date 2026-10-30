@@ -4,6 +4,7 @@ import cors from "@fastify/cors";
 import type {ApiConfig} from "./config.js";
 import type {PrismaClient} from "@prisma/client";
 import {authRoutes} from "./auth.js";
+import {accountRoutes} from "./account.js";
 
 export interface ReadinessDatabase {
   $queryRaw<T = unknown>(query: TemplateStringsArray): Promise<T>;
@@ -29,7 +30,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       return r.code(503).send({status:"not_ready",checks:{database:"error"}});
     }
   });
-  if(options.prisma)authRoutes(app,options.prisma as unknown as PrismaClient);
+  if(options.prisma){authRoutes(app,options.prisma as unknown as PrismaClient);accountRoutes(app,options.prisma as unknown as PrismaClient);}
   app.setErrorHandler((error: unknown,_q,r)=>{
     app.log.error({err:error},"Unhandled API error");
     const statusCode=typeof error==="object"&&error!==null&&"statusCode" in error&&typeof error.statusCode==="number"&&error.statusCode>=400&&error.statusCode<600?error.statusCode:500;
