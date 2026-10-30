@@ -1,0 +1,78 @@
+name: Prisma migration integration
+
+on:
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "scripts/db/**"
+      - "package.json"
+      - ".npmrc"
+      - ".github/workflows/prisma-validation.yml"
+      - ".github/workflows/prisma-migration-integration.yml"
+  push:
+    branches:
+      - main
+      - "architecture/**"
+    paths:
+      - "prisma/**"
+      - "scripts/db/**"
+      - "package.json"
+      - ".npmrc"
+      - ".github/workflows/prisma-migration-integration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  migration-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: funlink_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d funlink_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/funlink_ci?schema=public
+      PGPASSWORD: ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Validate schema and generate client
+        run: |
+          pnpm db:validate
+          pnpm db:generate
+      - name: Generate initial migration SQL
+        run: |
+          mkdir -p artifacts
+          pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > artifacts/0001_initial.sql
+          test -s artifacts/0001_initial.sql
+      - name: Apply migration to disposable PostgreSQL
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f artifacts/0001_initial.sql
+      - name: Verify schema and tenant isolation constraints
+        run: bash scripts/db/smoke-test.sh
+      - name: Upload generated migration SQL
+        uses: actions/upload-artifact@v4
+        with:
+          name: funlink-initial-postgres-migration
+          path: artifacts/0001_initial.sql
+          if-no-files-found: error
+          retention-days: 14
