@@ -96,6 +96,7 @@ model User {
   memberships TenantMember[]
   auditLogs AuditLog[] @relation("AuditActor")
   profile UserProfile?
+  authTokens AuthToken[]
 }
 model Session {
   id String @id @default(cuid())
