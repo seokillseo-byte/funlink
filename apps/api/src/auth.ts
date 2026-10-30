@@ -22,9 +22,11 @@ async function sendEmail(to:string,subject:string,html:string){
  if(!response.ok)throw new Error("Email provider rejected the message.");
 }
 async function issueToken(db:PrismaClient,userId:string,purpose:"EMAIL_VERIFICATION"|"PASSWORD_RESET",ttl:number){
- const raw=tokenValue(),expiresAt=new Date(Date.now()+ttl);
- await db.authToken.updateMany({where:{userId,purpose,usedAt:null},data:{usedAt:new Date()}});
- await db.authToken.create({data:{userId,purpose,tokenHash:sha(raw),expiresAt}});
+ const raw=tokenValue(),now=new Date(),expiresAt=new Date(now.getTime()+ttl);
+ await db.$transaction(async tx=>{
+  await tx.authToken.updateMany({where:{userId,purpose,usedAt:null},data:{usedAt:now}});
+  await tx.authToken.create({data:{userId,purpose,tokenHash:sha(raw),expiresAt}});
+ });
  return raw;
 }
 async function deliverToken(email:string,raw:string,purpose:"verify"|"reset"){
