@@ -33,6 +33,43 @@ export function accountRoutes(app:FastifyInstance,db:PrismaClient){
   return {members};
  });
 
+ app.patch("/v1/workspaces/:tenantId/members/:memberId",async(req,reply)=>{
+  const {tenantId}=tenantParams.parse(req.params);
+  const {memberId}=z.object({memberId:z.string().min(1).max(64)}).parse(req.params);
+  const access=await tenantMembership(req,db,tenantId);
+  if(!access)return reply.code(404).send({error:"Workspace not found"});
+  if(!["OWNER","ADMIN"].includes(access.role))return reply.code(403).send({error:"Workspace administrator access required"});
+  const parsed=z.object({role:z.enum(["ADMIN","MEMBER","BILLING","VIEWER"])}).safeParse(req.body);
+  if(!parsed.success)return reply.code(400).send({error:"Invalid member role"});
+  if(parsed.data.role==="ADMIN"&&access.role!=="OWNER")return reply.code(403).send({error:"Only the workspace owner can promote an administrator"});
+  const target=await db.tenantMember.findFirst({where:{id:memberId,tenantId},select:{id:true,role:true,userId:true}});
+  if(!target)return reply.code(404).send({error:"Workspace member not found"});
+  if(target.role==="OWNER")return reply.code(403).send({error:"Owner role cannot be changed here"});
+  const updated=await db.$transaction(async tx=>{
+   const row=await tx.tenantMember.update({where:{id:target.id},data:{role:parsed.data.role},select:{id:true,role:true,userId:true}});
+   await tx.auditLog.create({data:{tenantId,actorId:access.userId,action:"workspace.member.role_updated",entityType:"TenantMember",entityId:row.id,metadata:{previousRole:target.role,newRole:row.role}}});
+   return row;
+  });
+  return {member:updated};
+ });
+ app.delete("/v1/workspaces/:tenantId/members/:memberId",async(req,reply)=>{
+  const {tenantId}=tenantParams.parse(req.params);
+  const {memberId}=z.object({memberId:z.string().min(1).max(64)}).parse(req.params);
+  const access=await tenantMembership(req,db,tenantId);
+  if(!access)return reply.code(404).send({error:"Workspace not found"});
+  if(!["OWNER","ADMIN"].includes(access.role))return reply.code(403).send({error:"Workspace administrator access required"});
+  const target=await db.tenantMember.findFirst({where:{id:memberId,tenantId},select:{id:true,role:true,userId:true}});
+  if(!target)return reply.code(404).send({error:"Workspace member not found"});
+  if(target.role==="OWNER")return reply.code(403).send({error:"Workspace owner cannot be removed"});
+  const removed=await db.$transaction(async tx=>{
+   const result=await tx.tenantMember.deleteMany({where:{id:target.id,tenantId,role:{not:"OWNER"}}});
+   if(result.count!==1)return false;
+   await tx.auditLog.create({data:{tenantId,actorId:access.userId,action:"workspace.member.removed",entityType:"TenantMember",entityId:target.id,metadata:{removedUserId:target.userId,removedRole:target.role}}});
+   return true;
+  });
+  if(!removed)return reply.code(409).send({error:"Workspace member changed before removal; refresh and try again"});
+  return {ok:true};
+ });
  app.get("/v1/workspaces/:tenantId/invitations",async(req,reply)=>{
   const {tenantId}=tenantParams.parse(req.params);
   const access=await tenantMembership(req,db,tenantId);
