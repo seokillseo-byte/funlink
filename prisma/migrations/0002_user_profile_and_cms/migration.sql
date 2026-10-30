@@ -37,3 +37,8 @@ CREATE TABLE "SitePage" (
 );
 CREATE UNIQUE INDEX "SitePage_slug_key" ON "SitePage"("slug");
 CREATE INDEX "SitePage_status_publishedAt_idx" ON "SitePage"("status","publishedAt");
+
+-- Backfill one profile for users that already exist before this migration.
+INSERT INTO "UserProfile" ("id","userId","updatedAt")
+SELECT 'profile_' || md5("id"), "id", CURRENT_TIMESTAMP FROM "User"
+ON CONFLICT ("userId") DO NOTHING;
