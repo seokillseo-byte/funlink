@@ -116,6 +116,7 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   members TenantMember[]
+  invitations WorkspaceInvitation[]
   links Link[]
   domains Domain[]
   campaigns Campaign[]
@@ -435,4 +436,21 @@ model AuthToken {
   createdAt DateTime @default(now())
   user User @relation(fields:[userId], references:[id], onDelete:Cascade)
   @@index([userId,purpose,expiresAt])
+}
+
+
+model WorkspaceInvitation {
+  id String @id @default(cuid())
+  tenantId String
+  email String
+  role TenantRole @default(MEMBER)
+  tokenHash String @unique
+  invitedById String
+  expiresAt DateTime
+  acceptedAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
+  @@index([tenantId,email,createdAt])
+  @@index([expiresAt])
 }
