@@ -3,6 +3,7 @@ import type {FastifyInstance} from "fastify";
 import {Prisma,type PrismaClient} from "@prisma/client";
 import {z} from "zod";
 const sha=(s:string)=>createHash("sha256").update(s).digest("hex");
+const escapeHtml=(value:string)=>value.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\"","&quot;").replaceAll("'","&#39;");
 async function currentUser(req:any,db:PrismaClient){const token=req.cookies?.funlink_session;if(!token)return null;const s=await db.session.findUnique({where:{tokenHash:sha(token)},include:{user:true}});if(!s||s.revokedAt||s.expiresAt<=new Date()||s.user.status!=="ACTIVE"||!s.user.emailVerifiedAt)return null;return s.user;}
 async function isCmsAdmin(req:any,db:PrismaClient){const user=await currentUser(req,db);if(!user)return {user:null,allowed:false};const allow=(process.env.FUNLINK_CMS_ADMIN_EMAILS??"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);return {user,allowed:allow.includes(user.email.toLowerCase())};}
 const pageFields={slug:true,title:true,content:true,metaTitle:true,metaDescription:true,canonicalUrl:true,ogTitle:true,ogDescription:true,ogImageUrl:true,robots:true,schemaJson:true,status:true,publishedAt:true,updatedAt:true} as const;
@@ -93,10 +94,15 @@ export function accountRoutes(app:FastifyInstance,db:PrismaClient){
   const raw=randomBytes(32).toString("base64url"),expiresAt=new Date(Date.now()+7*24*60*60*1000);
   const invitation=await db.workspaceInvitation.create({data:{tenantId,email,role,tokenHash:sha(raw),invitedById:access.userId,expiresAt},select:{id:true,email:true,role:true,expiresAt:true,createdAt:true}});
   const base=process.env.APP_BASE_URL,apiKey=process.env.RESEND_API_KEY,from=process.env.EMAIL_FROM;
-  if(!base||!apiKey||!from){req.log.error("Workspace invitation email is not configured");return reply.code(503).send({error:"Invitation saved, but email delivery is not configured. Configure email and retry after revoking this invitation."});}
-  const url=new URL("/accept-invitation",base);url.searchParams.set("token",raw);
-  const sent=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({from,to:email,subject:"Lời mời tham gia workspace FunLink",html:`<p>Bạn được mời tham gia workspace ${access.tenant.name} với vai trò ${role}.</p><p><a href="${url.toString()}">Chấp nhận lời mời</a></p><p>Lời mời có hiệu lực trong 7 ngày.</p>`})});
-  if(!sent.ok){req.log.error({status:sent.status},"Workspace invitation email delivery failed");return reply.code(503).send({error:"Invitation saved, but email delivery failed. Revoke it and try again after checking email settings."});}
+  if(!base||!apiKey||!from){await db.workspaceInvitation.update({where:{id:invitation.id},data:{revokedAt:new Date()}});req.log.error("Workspace invitation email is not configured");return reply.code(503).send({error:"Email delivery is not configured. The unsent invitation was discarded; configure email and try again."});}
+  let baseUrl:URL;
+  try{baseUrl=new URL(base);if(!["https:","http:"].includes(baseUrl.protocol))throw new Error("Invalid protocol");}
+  catch{await db.workspaceInvitation.update({where:{id:invitation.id},data:{revokedAt:new Date()}});return reply.code(503).send({error:"APP_BASE_URL is invalid; the unsent invitation was discarded."});}
+  const url=new URL("/accept-invitation",baseUrl);url.searchParams.set("token",raw);
+  try{
+   const sent=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({from,to:email,subject:"Lời mời tham gia workspace FunLink",html:`<p>Bạn được mời tham gia workspace ${escapeHtml(access.tenant.name)} với vai trò ${escapeHtml(role)}.</p><p><a href="${url.toString()}">Chấp nhận lời mời</a></p><p>Lời mời có hiệu lực trong 7 ngày.</p>`}),signal:AbortSignal.timeout(10000)});
+   if(!sent.ok){req.log.error({status:sent.status},"Workspace invitation email delivery failed");await db.workspaceInvitation.update({where:{id:invitation.id},data:{revokedAt:new Date()}});return reply.code(503).send({error:"Email delivery failed; the unsent invitation was discarded. Check email settings and try again."});}
+  }catch(error){req.log.error({err:error},"Workspace invitation email delivery failed");await db.workspaceInvitation.update({where:{id:invitation.id},data:{revokedAt:new Date()}});return reply.code(503).send({error:"Email delivery failed; the unsent invitation was discarded. Check email settings and try again."});}
   return reply.code(201).send({invitation});
  });
  app.delete("/v1/workspaces/:tenantId/invitations/:invitationId",async(req,reply)=>{
