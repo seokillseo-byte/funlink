@@ -1,0 +1,44 @@
+name: Prisma schema validation
+
+on:
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "package.json"
+      - ".npmrc"
+      - ".github/workflows/prisma-validation.yml"
+  push:
+    branches:
+      - main
+      - "architecture/**"
+    paths:
+      - "prisma/**"
+      - "package.json"
+      - ".npmrc"
+      - ".github/workflows/prisma-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Format Prisma schema
+        run: pnpm db:format
+      - name: Validate Prisma schema
+        run: pnpm db:validate
+      - name: Generate Prisma Client
+        run: pnpm db:generate
