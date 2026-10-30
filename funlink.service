@@ -1,0 +1,22 @@
+[Unit]
+Description=FunLink URL Shortener MVP
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/funlink
+Environment=NODE_ENV=production
+Environment=PORT=3012
+Environment=HOST=0.0.0.0
+ExecStart=/usr/bin/node /var/www/funlink/server.js
+Restart=on-failure
+RestartSec=3
+User=funlink
+Group=funlink
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/www/funlink/data
+
+[Install]
+WantedBy=multi-user.target
