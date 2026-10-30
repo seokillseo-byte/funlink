@@ -20,7 +20,7 @@ on:
       - ".github/workflows/prisma-migration-baseline.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   migration-baseline:
@@ -63,6 +63,20 @@ jobs:
           pnpm db:generate
       - name: Create disposable shadow database
         run: createdb -h localhost -U ci funlink_shadow
+      - name: Generate and commit initial migration baseline when absent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f prisma/migrations/0001_initial/migration.sql ]; then
+            mkdir -p prisma/migrations/0001_initial
+            pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0001_initial/migration.sql
+            test -s prisma/migrations/0001_initial/migration.sql
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add prisma/migrations/0001_initial/migration.sql
+            git commit -m "chore(db): add reviewed initial migration baseline"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
       - name: Apply versioned migration
         run: pnpm exec prisma migrate deploy
       - name: Verify repeated deploy is a no-op
