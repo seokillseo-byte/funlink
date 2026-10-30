@@ -3,8 +3,9 @@ set -euo pipefail
 
 : "${DATABASE_URL:?DATABASE_URL is required}"
 : "${PGPASSWORD:?PGPASSWORD is required}"
+: "${PSQL_DATABASE_URL:?PSQL_DATABASE_URL is required}"
 
-table_count="$(psql "$DATABASE_URL" -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';")"
+table_count="$(psql "$PSQL_DATABASE_URL" -Atqc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';")"
 if [ "$table_count" -lt 20 ]; then
   echo "Expected at least 20 application tables, found $table_count"
   exit 1
