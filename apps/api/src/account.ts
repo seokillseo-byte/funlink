@@ -47,10 +47,15 @@ export function accountRoutes(app:FastifyInstance,db:PrismaClient){
   if(!target)return reply.code(404).send({error:"Workspace member not found"});
   if(target.role==="OWNER")return reply.code(403).send({error:"Owner role cannot be changed here"});
   const updated=await db.$transaction(async tx=>{
-   const row=await tx.tenantMember.update({where:{id:target.id},data:{role:parsed.data.role},select:{id:true,role:true,userId:true}});
-   await tx.auditLog.create({data:{tenantId,actorId:access.userId,action:"workspace.member.role_updated",entityType:"TenantMember",entityId:row.id,metadata:{previousRole:target.role,newRole:row.role}}});
-   return row;
+   // Re-check the tenant and non-owner role in the write itself. A separate
+   // read followed by update() could otherwise overwrite a concurrently
+   // promoted OWNER membership.
+   const changed=await tx.tenantMember.updateMany({where:{id:target.id,tenantId,role:{not:"OWNER"}},data:{role:parsed.data.role}});
+   if(changed.count!==1)return null;
+   await tx.auditLog.create({data:{tenantId,actorId:access.userId,action:"workspace.member.role_updated",entityType:"TenantMember",entityId:target.id,metadata:{previousRole:target.role,newRole:parsed.data.role}}});
+   return {id:target.id,role:parsed.data.role,userId:target.userId};
   });
+  if(!updated)return reply.code(409).send({error:"Workspace member changed before role update; refresh and try again"});
   return {member:updated};
  });
  app.delete("/v1/workspaces/:tenantId/members/:memberId",async(req,reply)=>{
