@@ -43,6 +43,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/funlink_ci?schema=public
       PGPASSWORD: ci
+      PSQL_DATABASE_URL: postgresql://ci:ci@localhost:5432/funlink_ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,7 +67,7 @@ jobs:
           pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > artifacts/0001_initial.sql
           test -s artifacts/0001_initial.sql
       - name: Apply migration to disposable PostgreSQL
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f artifacts/0001_initial.sql
+        run: psql "$PSQL_DATABASE_URL" -v ON_ERROR_STOP=1 -f artifacts/0001_initial.sql
       - name: Verify schema and tenant isolation constraints
         run: bash scripts/db/smoke-test.sh
       - name: Upload generated migration SQL
