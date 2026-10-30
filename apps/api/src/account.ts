@@ -3,7 +3,7 @@ import type {FastifyInstance} from "fastify";
 import {Prisma,type PrismaClient} from "@prisma/client";
 import {z} from "zod";
 const sha=(s:string)=>createHash("sha256").update(s).digest("hex");
-async function currentUser(req:any,db:PrismaClient){const token=req.cookies?.funlink_session;if(!token)return null;const s=await db.session.findUnique({where:{tokenHash:sha(token)},include:{user:true}});if(!s||s.revokedAt||s.expiresAt<=new Date()||s.user.status!=="ACTIVE")return null;return s.user;}
+async function currentUser(req:any,db:PrismaClient){const token=req.cookies?.funlink_session;if(!token)return null;const s=await db.session.findUnique({where:{tokenHash:sha(token)},include:{user:true}});if(!s||s.revokedAt||s.expiresAt<=new Date()||s.user.status!=="ACTIVE"||!s.user.emailVerifiedAt)return null;return s.user;}
 async function isCmsAdmin(req:any,db:PrismaClient){const user=await currentUser(req,db);if(!user)return {user:null,allowed:false};const allow=(process.env.FUNLINK_CMS_ADMIN_EMAILS??"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);return {user,allowed:allow.includes(user.email.toLowerCase())};}
 const pageFields={slug:true,title:true,content:true,metaTitle:true,metaDescription:true,canonicalUrl:true,ogTitle:true,ogDescription:true,ogImageUrl:true,robots:true,schemaJson:true,status:true,publishedAt:true,updatedAt:true} as const;
 export function accountRoutes(app:FastifyInstance,db:PrismaClient){
