@@ -31,8 +31,9 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
   app.setErrorHandler((error, _request, reply) => {
     app.log.error({ err: error }, "Unhandled API error");
-    const statusCode = error.statusCode && error.statusCode >= 400 && error.statusCode < 600 ? error.statusCode : 500;
-    return reply.code(statusCode).send({ error: statusCode >= 500 ? "Internal server error" : error.message });
+    const knownError = error as Error & { statusCode?: number };
+    const statusCode = knownError.statusCode && knownError.statusCode >= 400 && knownError.statusCode < 600 ? knownError.statusCode : 500;
+    return reply.code(statusCode).send({ error: statusCode >= 500 ? "Internal server error" : knownError.message });
   });
 
   return app;
