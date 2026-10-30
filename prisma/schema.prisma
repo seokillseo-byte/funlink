@@ -101,7 +101,7 @@ model Link {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  campaign Campaign? @relation(fields:[tenantId,campaignId], references:[tenantId,id], onDelete:SetNull)
+  campaign Campaign? @relation(fields:[tenantId,campaignId], references:[tenantId,id], onDelete:Restrict)
   domainSlugs LinkDomainSlug[]
   clickEvents ClickEvent[]
   @@unique([tenantId,id])
@@ -165,7 +165,6 @@ model Plan {
   active Boolean @default(true)
   createdAt DateTime @default(now())
   subscriptions Subscription[]
-  @@check(priceMinor >= 0)
 }
 model Subscription {
   id String @id @default(cuid())
