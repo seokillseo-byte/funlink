@@ -419,3 +419,19 @@ model SitePage {
  createdAt DateTime @default(now())
  @@index([status,publishedAt])
 }
+
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+model AuthToken {
+  id String @id @default(cuid())
+  userId String
+  tokenHash String @unique
+  purpose AuthTokenPurpose
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  @@index([userId,purpose,expiresAt])
+}
