@@ -304,3 +304,51 @@ test("workspace invitation returns conflict when another request already claimed
   assert.equal(response.statusCode, 409);
   await app.close();
 });
+
+
+test("GET /v1/auth/me clears a stale cookie when the session no longer exists", async () => {
+  const prisma = { session: { findUnique: async () => null } } as unknown as PrismaClient;
+  const app = buildApp({ config, logger: false, prisma });
+  const response = await app.inject({
+    method: "GET",
+    url: "/v1/auth/me",
+    headers: { cookie: sessionCookie }
+  });
+  assert.equal(response.statusCode, 401);
+  assert.match(response.headers["set-cookie"] ?? "", /funlink_session=/);
+  assert.match(response.headers["set-cookie"] ?? "", /Max-Age=0/i);
+  await app.close();
+});
+
+test("GET /v1/auth/me clears a cookie for revoked, expired, disabled or unverified sessions", async () => {
+  const cases = [
+    { name: "revoked", session: { revokedAt: new Date(), expiresAt: new Date(Date.now() + 60_000), user: { status: "ACTIVE", emailVerifiedAt: new Date() } } },
+    { name: "expired", session: { revokedAt: null, expiresAt: new Date(Date.now() - 1_000), user: { status: "ACTIVE", emailVerifiedAt: new Date() } } },
+    { name: "disabled", session: { revokedAt: null, expiresAt: new Date(Date.now() + 60_000), user: { status: "SUSPENDED", emailVerifiedAt: new Date() } } },
+    { name: "unverified", session: { revokedAt: null, expiresAt: new Date(Date.now() + 60_000), user: { status: "ACTIVE", emailVerifiedAt: null } } }
+  ];
+  for (const item of cases) {
+    const prisma = { session: { findUnique: async () => item.session } } as unknown as PrismaClient;
+    const app = buildApp({ config, logger: false, prisma });
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/auth/me",
+      headers: { cookie: sessionCookie }
+    });
+    assert.equal(response.statusCode, 401, item.name);
+    assert.match(response.headers["set-cookie"] ?? "", /Max-Age=0/i, item.name);
+    await app.close();
+  }
+});
+
+test("trusted Origin passes the origin guard and reaches authentication", async () => {
+  const app = buildApp({ config, logger: false });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/auth/login",
+    headers: { origin: "http://localhost:3014", "content-type": "application/json" },
+    payload: { email: "test@example.com", password: "not-a-real-password" }
+  });
+  assert.notEqual(response.statusCode, 403);
+  await app.close();
+});
