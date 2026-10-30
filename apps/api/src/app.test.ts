@@ -22,7 +22,7 @@ test("GET /ready returns 503 when database is not configured", async () => {
 });
 
 test("GET /ready succeeds when database probe succeeds", async () => {
-  const app = buildApp({ config, logger: false, prisma: { $queryRaw: async () => [{ result: 1 }] } });
+  const app = buildApp({ config, logger: false, prisma: { $queryRaw: async <T>() => [{ result: 1 }] as T } });
   const response = await app.inject({ method: "GET", url: "/ready" });
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), { status: "ready", checks: { database: "ok" } });
