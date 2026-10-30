@@ -76,7 +76,7 @@ export function authRoutes(app:FastifyInstance,db:PrismaClient){
   if(rateLimited("forgot:"+clientKey(req),3))return reply.code(429).send({error:"Too many requests. Try again later."});
   const parsed=z.object({email:z.string().email().max(254).transform(s=>s.toLowerCase())}).safeParse(req.body);if(!parsed.success)return reply.code(400).send({error:"Invalid email"});
   const user=await db.user.findUnique({where:{email:parsed.data.email}});
-  if(user&&user.status==="ACTIVE"){const raw=await issueToken(db,user.id,"PASSWORD_RESET",60*60*1000);try{await deliverToken(user.email,raw,"reset")}catch(e){req.log.error({err:e},"Password reset email delivery failed");return reply.code(503).send({error:"Email delivery is unavailable. Try again later."});}}
+  if(user&&user.status==="ACTIVE"){const raw=await issueToken(db,user.id,"PASSWORD_RESET",60*60*1000);try{await deliverToken(user.email,raw,"reset")}catch(e){req.log.error({err:e},"Password reset email delivery failed");}}
   return {ok:true,message:"If the account exists, password reset instructions have been sent."};
  });
  app.post("/v1/auth/reset-password",async(req,reply)=>{
