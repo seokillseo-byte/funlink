@@ -1,5 +1,4 @@
 import Fastify, { type FastifyInstance } from "fastify";
-import type { PrismaClient } from "@prisma/client";
 import type { ApiConfig } from "./config.js";
 
 export interface ReadinessDatabase {
@@ -22,7 +21,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       return reply.code(503).send({ status: "not_ready", checks: { database: "not_configured" } });
     }
     try {
-      await options.prisma.$queryRaw\`SELECT 1\`;
+      await options.prisma.$queryRaw`SELECT 1`;
       return { status: "ready", checks: { database: "ok" } };
     } catch (error) {
       requestLog(app, error);
