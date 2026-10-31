@@ -36,6 +36,15 @@ VALUES ('post_a','tenant_a','category_a','Post A','post-a','Content A',NOW());
 INSERT INTO "MediaAsset" ("id","tenantId","postId","storageKey","publicUrl","mimeType","sizeBytes")
 VALUES ('media_a','tenant_a','post_a','tenant-a/post-a.webp','https://cdn.example.com/post-a.webp','image/webp',1024);
 
+INSERT INTO "Invoice" ("id","tenantId","number","amountMinor","planSnapshot","lineItems")
+VALUES ('invoice_a','tenant_a','INV-TEST-001',10000,'{"planCode":"starter","priceMinor":10000}'::jsonb,'[]'::jsonb);
+
+INSERT INTO "PaymentAttempt" ("id","tenantId","invoiceId","provider","idempotencyKey","amountMinor")
+VALUES ('payment_a','tenant_a','invoice_a','test-provider','idem-test-001',10000);
+
+INSERT INTO "WebhookEvent" ("id","provider","providerEventId","payload")
+VALUES ('webhook_a','test-provider','event-test-001','{"type":"payment.succeeded"}'::jsonb);
+
 DO $$
 BEGIN
   BEGIN
@@ -76,6 +85,22 @@ BEGIN
     RAISE EXCEPTION 'Cross-tenant media/post reference was incorrectly accepted';
   EXCEPTION WHEN foreign_key_violation THEN
     RAISE NOTICE 'PASS: cross-tenant media/post reference rejected';
+  END;
+
+  BEGIN
+    INSERT INTO "PaymentAttempt" ("id","tenantId","invoiceId","provider","idempotencyKey","amountMinor")
+    VALUES ('payment_duplicate','tenant_a','invoice_a','test-provider','idem-test-001',10000);
+    RAISE EXCEPTION 'Duplicate payment idempotency key was incorrectly accepted';
+  EXCEPTION WHEN unique_violation THEN
+    RAISE NOTICE 'PASS: duplicate payment idempotency key rejected';
+  END;
+
+  BEGIN
+    INSERT INTO "WebhookEvent" ("id","provider","providerEventId","payload")
+    VALUES ('webhook_duplicate','test-provider','event-test-001','{"type":"payment.succeeded"}'::jsonb);
+    RAISE EXCEPTION 'Duplicate provider webhook event was incorrectly accepted';
+  EXCEPTION WHEN unique_violation THEN
+    RAISE NOTICE 'PASS: duplicate provider webhook event rejected';
   END;
 
   BEGIN
