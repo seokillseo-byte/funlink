@@ -9,7 +9,7 @@ import {
 
 type RawRequest = { rawBody?: Buffer };
 
-async function captureRawBody(request: RawRequest, _reply: unknown, payload: NodeJS.ReadableStream) {
+async function captureRawBody(request: any, _reply: any, payload: NodeJS.ReadableStream) {
   const chunks: Buffer[] = [];
   const transform = new Transform({
     transform(chunk: Buffer | string, _encoding, callback) {
