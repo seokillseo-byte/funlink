@@ -43,8 +43,15 @@ This phase hardens the proposed Prisma model before any production migration. It
 - Existing invoices need a historical snapshot policy. Do not invent missing plan details; preserve available amounts and mark unknown snapshot fields explicitly.
 - Existing click events must be assigned tenant IDs from their owning links, not inferred from user input.
 - Unique global `Link.slug` is retained for the default short host. Custom host slugs are unique by `domainId + slug`.
-- Composite optional relations use restrictive deletion behavior where the tenant key itself is required. The service must explicitly detach/reassign optional records before deleting their parent.
+- Optional composite relations (`Post -> Category` and `MediaAsset -> Post`) use `onDelete: Restrict`. PostgreSQL cannot safely apply `SetNull` to a composite foreign key when `tenantId` is required. The service must explicitly detach/reassign the optional `categoryId` or `postId` before deleting the parent.
+- `Link -> Campaign` also uses `Restrict`; unlink links explicitly before deleting a campaign. These rules prevent accidental tenant-key nulling and silent data loss.
 
 ## Validation status
 
-**Not yet validated by Prisma CLI and no SQL migration has been generated or applied.** This repository snapshot currently contains architecture/schema artifacts only; the migration must be generated when the application workspace and pinned Prisma toolchain are added. This PR is a reviewable design hardening step, not a production-ready database rollout.
+GitHub Actions on commit `d5cd07ca6b31c0e7607dd745f317e54a78b64c30` is green:
+- Prisma schema formatting, validation and client generation: run [41160905408](https://github.com/seokillseo-byte/funlink/actions/runs/41160905408).
+- PostgreSQL 16 SQL generation, disposable-database apply, tenant isolation/delete smoke tests and artifact upload: run [41160905401](https://github.com/seokillseo-byte/funlink/actions/runs/41160905401).
+
+The SQL artifact `funlink-initial-postgres-migration` was generated and uploaded (artifact ID `13026703905`, SHA-256 `a967547a0129e6bd4987302de75882da34f6c8e4cbb85a38bf1daa66c904e186`). It is a temporary CI artifact and has not yet been reviewed or committed as a versioned migration. Do not treat artifact generation as SQL review completion.
+
+Domain verification service behavior, raw-body webhook signature verification and invoice snapshot immutability remain unverified application-level gates. No production database, server, DNS or legacy JSON data has been touched.

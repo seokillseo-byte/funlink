@@ -1,14 +1,25 @@
 # Phase 0.2 — Tenant isolation and billing review checklist
 
-- [ ] Prisma schema formatting and validation passes with pinned toolchain.
-- [ ] Two-tenant fixture proves cross-tenant LinkDomainSlug insert fails.
-- [ ] Two-tenant fixture proves ClickEvent cannot point to another tenant's Link.
-- [ ] Two-tenant fixture proves Link cannot reference another tenant's Campaign.
-- [ ] Two-tenant fixture proves Post cannot reference another tenant's Category.
-- [ ] Two-tenant fixture proves MediaAsset cannot reference another tenant's Post.
-- [ ] Domain verification persists only a token hash.
-- [ ] Payment creation requires a unique idempotency key.
-- [ ] Duplicate provider webhook event is safely ignored.
+- [x] Prisma schema formatting and validation passes with pinned toolchain (latest run 41162395450).
+- [x] PostgreSQL 16 migration replay passes using the committed versioned migration (run 41162395421).
+- [x] CI compares committed migration SQL with SQL generated from the Prisma schema (run 41162395421).
+- [x] CI confirms the committed migration is recorded in `_prisma_migrations`.
+- [x] PostgreSQL fixture proves cross-tenant LinkDomainSlug insert fails.
+- [x] PostgreSQL fixture proves ClickEvent cannot point to another tenant's Link.
+- [x] PostgreSQL fixture proves Link cannot reference another tenant's Campaign.
+- [x] PostgreSQL fixture proves Post cannot reference another tenant's Category.
+- [x] PostgreSQL fixture proves MediaAsset cannot reference another tenant's Post.
+- [x] PostgreSQL fixture proves Invoice cannot reference another tenant's Subscription.
+- [x] PostgreSQL fixture proves PaymentAttempt cannot reference another tenant's Invoice.
+- [x] PostgreSQL fixture proves referenced Category/Post deletion is restricted until the optional relation is explicitly detached.
+- [x] PostgreSQL fixture proves Subscription/Invoice/Tenant deletion is restricted while billing history depends on it.
+- [x] PostgreSQL fixture proves duplicate payment idempotency keys are rejected.
+- [x] PostgreSQL fixture proves duplicate provider event IDs are rejected at the database constraint.
+- [x] Generated initial SQL was reviewed and committed as `prisma/migrations/20261031030000_init/migration.sql`, with `prisma/migrations/migration_lock.toml`.
+- [x] No migration is run against production during this phase.
+- [ ] Domain verification service stores only a hash and validates expiry/constant-time comparison.
 - [ ] Invalid webhook signature cannot change invoice/subscription state.
-- [ ] Invoice snapshot remains unchanged after plan price/entitlements change.
-- [ ] No migration is run against production during this phase.
+- [ ] Webhook handler verifies raw-body signatures before any payment/subscription mutation.
+- [ ] Invoice snapshot immutability is enforced and tested in the billing service/database policy.
+- [ ] Legacy JSON importer passes dry-run, reconciliation, replay/idempotency and rollback rehearsal.
+- [ ] Production migration backup/restore rehearsal and cutover plan approved (separate later gate; no production migration in Phase 0.2).
