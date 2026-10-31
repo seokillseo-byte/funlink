@@ -249,9 +249,10 @@ model Subscription {
   canceledAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
+  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Restrict)
   plan Plan @relation(fields:[planId], references:[id])
   invoices Invoice[]
+  @@unique([tenantId,id])
   @@unique([provider,providerSubscriptionId])
   @@index([tenantId,status])
 }
@@ -268,9 +269,10 @@ model Invoice {
   dueAt DateTime?
   paidAt DateTime?
   createdAt DateTime @default(now())
-  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  subscription Subscription? @relation(fields:[subscriptionId], references:[id], onDelete:SetNull)
+  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Restrict)
+  subscription Subscription? @relation(fields:[tenantId,subscriptionId], references:[tenantId,id], onDelete:Restrict)
   payments PaymentAttempt[]
+  @@unique([tenantId,id])
   @@index([tenantId,createdAt])
 }
 model PaymentAttempt {
@@ -285,8 +287,8 @@ model PaymentAttempt {
   currency String @default("VND") @db.VarChar(3)
   paidAt DateTime?
   createdAt DateTime @default(now())
-  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  invoice Invoice @relation(fields:[invoiceId], references:[id], onDelete:Cascade)
+  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Restrict)
+  invoice Invoice @relation(fields:[tenantId,invoiceId], references:[tenantId,id], onDelete:Restrict)
   webhookEvents WebhookEvent[]
   @@unique([provider,providerPaymentId])
   @@index([tenantId,status])
@@ -356,7 +358,7 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  category Category? @relation(fields:[tenantId,categoryId], references:[tenantId,id], onDelete:SetNull)
+  category Category? @relation(fields:[tenantId,categoryId], references:[tenantId,id], onDelete:Restrict)
   seo SeoMetadata?
   media MediaAsset[]
   @@unique([tenantId,id])
@@ -385,7 +387,7 @@ model MediaAsset {
   altText String?
   createdAt DateTime @default(now())
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  post Post? @relation(fields:[tenantId,postId], references:[tenantId,id], onDelete:SetNull)
+  post Post? @relation(fields:[tenantId,postId], references:[tenantId,id], onDelete:Restrict)
   @@index([tenantId,createdAt])
 }
 
