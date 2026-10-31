@@ -1,22 +1,25 @@
 # Phase 0.2 — Tenant isolation and billing review checklist
 
-- [x] Prisma schema formatting and validation passes with pinned toolchain (GitHub Actions run 41160905408).
-- [x] PostgreSQL 16 migration applies cleanly to a disposable database (run 41160905401).
+- [x] Prisma schema formatting and validation passes with pinned toolchain (latest run 41162395450).
+- [x] PostgreSQL 16 migration replay passes using the committed versioned migration (run 41162395421).
+- [x] CI compares committed migration SQL with SQL generated from the Prisma schema (run 41162395421).
+- [x] CI confirms the committed migration is recorded in `_prisma_migrations`.
 - [x] PostgreSQL fixture proves cross-tenant LinkDomainSlug insert fails.
 - [x] PostgreSQL fixture proves ClickEvent cannot point to another tenant's Link.
 - [x] PostgreSQL fixture proves Link cannot reference another tenant's Campaign.
 - [x] PostgreSQL fixture proves Post cannot reference another tenant's Category.
 - [x] PostgreSQL fixture proves MediaAsset cannot reference another tenant's Post.
-- [ ] Domain verification persists only a token hash.
+- [x] PostgreSQL fixture proves Invoice cannot reference another tenant's Subscription.
+- [x] PostgreSQL fixture proves PaymentAttempt cannot reference another tenant's Invoice.
+- [x] PostgreSQL fixture proves referenced Category/Post deletion is restricted until the optional relation is explicitly detached.
+- [x] PostgreSQL fixture proves Subscription/Invoice/Tenant deletion is restricted while billing history depends on it.
 - [x] PostgreSQL fixture proves duplicate payment idempotency keys are rejected.
 - [x] PostgreSQL fixture proves duplicate provider event IDs are rejected at the database constraint.
-- [ ] Invalid webhook signature cannot change invoice/subscription state.
-- [ ] Invoice snapshot remains unchanged after plan price/entitlements change.
+- [x] Generated initial SQL was reviewed and committed as `prisma/migrations/20261031030000_init/migration.sql`, with `prisma/migrations/migration_lock.toml`.
 - [x] No migration is run against production during this phase.
-- [x] PostgreSQL fixture proves referenced Category/Post deletion is restricted until the optional relation is explicitly detached.
-- [x] CI schema validation and PostgreSQL 16 integration workflow pass on commit d5cd07ca6b31c0e7607dd745f317e54a78b64c30.
-- [ ] Generated SQL artifact reviewed and committed as a versioned migration.
 - [ ] Domain verification service stores only a hash and validates expiry/constant-time comparison.
+- [ ] Invalid webhook signature cannot change invoice/subscription state.
 - [ ] Webhook handler verifies raw-body signatures before any payment/subscription mutation.
-- [ ] Invoice snapshot immutability is enforced and tested in the billing service.
+- [ ] Invoice snapshot immutability is enforced and tested in the billing service/database policy.
 - [ ] Legacy JSON importer passes dry-run, reconciliation, replay/idempotency and rollback rehearsal.
+- [ ] Production migration backup/restore rehearsal and cutover plan approved (separate later gate; no production migration in Phase 0.2).
