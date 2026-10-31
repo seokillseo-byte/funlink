@@ -7,6 +7,7 @@ import {authRoutes} from "./auth.js";
 import {accountRoutes} from "./account.js";
 import {domainRoutes} from "./domains.js";
 import {webhookRoutes} from "./webhooks.js";
+import {nativePaymentWebhookRoutes} from "./payment-provider-routes.js";
 
 export interface ReadinessDatabase {$queryRaw<T = unknown>(query: TemplateStringsArray): Promise<T>;}
 export interface BuildAppOptions {config:ApiConfig;prisma?:ReadinessDatabase;logger?:boolean;}
@@ -28,7 +29,14 @@ export function buildApp(options:BuildAppOptions):FastifyInstance {
   try {await options.prisma.$queryRaw`SELECT 1`;return {status:"ready",checks:{database:"ok"}};}
   catch(error:unknown){app.log.error({err:error},"Database readiness failed");return r.code(503).send({status:"not_ready",checks:{database:"error"}});}
  });
- if(options.prisma){authRoutes(app,options.prisma as unknown as PrismaClient);accountRoutes(app,options.prisma as unknown as PrismaClient);domainRoutes(app,options.prisma as unknown as PrismaClient);webhookRoutes(app,options.prisma as unknown as PrismaClient);}
+ if(options.prisma){
+  const db=options.prisma as unknown as PrismaClient;
+  authRoutes(app,db);
+  accountRoutes(app,db);
+  domainRoutes(app,db);
+  webhookRoutes(app,db);
+  nativePaymentWebhookRoutes(app,db);
+ }
  app.setErrorHandler((error:unknown,_q,r)=>{
   app.log.error({err:error},"Unhandled API error");
   const statusCode=typeof error==="object"&&error!==null&&"statusCode" in error&&typeof error.statusCode==="number"&&error.statusCode>=400&&error.statusCode<600?error.statusCode:500;
