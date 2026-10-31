@@ -29,22 +29,20 @@ function signatureMatches(rawBody: Buffer, header: string | string[] | undefined
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
-function captureRawBody(request: any) {
-  return async (_request: any, _reply: any, payload: NodeJS.ReadableStream) => {
-    const chunks: Buffer[] = [];
-    const transform = new Transform({
-      transform(chunk: Buffer | string, _encoding, callback) {
-        chunks.push(Buffer.isBuffer(chunk) ? Buffer.from(chunk) : Buffer.from(chunk));
-        callback(null, chunk);
-      },
-      flush(callback) {
-        request.rawBody = Buffer.concat(chunks);
-        callback();
-      }
-    });
-    payload.pipe(transform);
-    return transform;
-  };
+async function captureRawBody(request: any, _reply: any, payload: NodeJS.ReadableStream) {
+  const chunks: Buffer[] = [];
+  const transform = new Transform({
+    transform(chunk: Buffer | string, _encoding, callback) {
+      chunks.push(Buffer.isBuffer(chunk) ? Buffer.from(chunk) : Buffer.from(chunk));
+      callback(null, chunk);
+    },
+    flush(callback) {
+      request.rawBody = Buffer.concat(chunks);
+      callback();
+    }
+  });
+  payload.pipe(transform);
+  return transform;
 }
 
 function isUniqueConflict(error: unknown): boolean {
