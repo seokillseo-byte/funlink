@@ -38,7 +38,7 @@ function fixture(role = "BILLING") {
     session:{findUnique:async()=>session},
     invoice:{
       findFirst:async({where}:any)=>where.tenantId==="tenant-1"&&where.id==="invoice-1"&&where.status==="OPEN"?invoice:null,
-      findMany:async()=>[{...invoice,payments:attempt?[{id:attempt.id,provider:attempt.provider,status:attempt.status,providerCheckoutUrl:attempt.providerCheckoutUrl,createdAt:new Date(),paidAt:null}]:[]}]
+      findMany:async({where}:any)=>where.tenantId==="tenant-1"?[{...invoice,payments:attempt?[{id:attempt.id,provider:attempt.provider,status:attempt.status,providerCheckoutUrl:attempt.providerCheckoutUrl,createdAt:new Date(),paidAt:null}]:[]}]:[]
     },
     paymentAttempt:{
       findUnique:async({where}:any)=>attempt?.idempotencyKey===where.idempotencyKey?attempt:null,
@@ -132,7 +132,7 @@ test("Binance Pay sandbox checkout signs the exact request and uses the internal
     const timestamp=requestHeaders.get("BinancePay-Timestamp")??"";
     const nonce=requestHeaders.get("BinancePay-Nonce")??"";
     const signature=requestHeaders.get("BinancePay-Signature")??"";
-    const expected=createHmac("sha512","sandbox-hmac-secret").update(timestamp+"\\n"+nonce+"\\n"+payload+"\\n").digest("hex").toUpperCase();
+    const expected=createHmac("sha512","sandbox-hmac-secret").update(timestamp+"\n"+nonce+"\n"+payload+"\n").digest("hex").toUpperCase();
     assert.equal(signature,expected);
     assert.equal(JSON.parse(payload).merchantTradeNo,"attempt-123");
     assert.equal(created.json().checkoutUrl,"https://pay.binance.com/checkout/123");
