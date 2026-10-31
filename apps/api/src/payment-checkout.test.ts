@@ -28,6 +28,7 @@ test("VNPay checkout URL uses internal attempt ID and a verifiable HMAC-SHA512 s
   try {
     const url = new URL(buildVnpayCheckoutUrl({
       attemptId: "attempt-internal-123",
+      tenantId: "tenant-test",
       invoiceNumber: "INV-2026-001",
       amountMinor: 125000,
       ipAddress: "127.0.0.1",

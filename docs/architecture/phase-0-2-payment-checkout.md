@@ -26,6 +26,12 @@ Repeated requests with the same idempotency key return the stored pending checko
 
 Requires the same workspace billing authorization. This calls PayPal Orders v2 capture. It does not mark an invoice paid: the signed PayPal webhook remains the authoritative settlement path.
 
+### Workspace billing read APIs
+
+- `GET /v1/workspaces/:tenantId/invoices` returns the latest 50 invoices and limited payment status metadata for a signed-in workspace member.
+- `GET /v1/workspaces/:tenantId/payment-attempts/:attemptId` returns the payment attempt status only when the caller belongs to that tenant.
+- Provider return and cancel URLs carry both `payment_attempt` and `workspace` query parameters so the return page can query the correct tenant. Redirects never settle an invoice.
+
 ## Environment
 
 Set values in the API deployment secret store, not in source control:
@@ -42,7 +48,7 @@ Use provider sandbox/test credentials and sandbox API endpoints for test environ
 - VNPay is VND-only. The VNPAY request amount is the invoice's VND amount multiplied by 100, and the request is signed with HMAC-SHA512.
 - PayPal uses Orders v2 with CAPTURE intent and a server-side OAuth token. VND is rejected because PayPal does not support it as a checkout currency.
 - Binance Pay request signing uses HMAC-SHA512 over timestamp + LF + nonce + LF + exact JSON body + LF; send the uppercase hexadecimal signature in BinancePay-Signature.
-- The current schema stores integer minor units. The checkout adapter formats supported currencies to zero or two decimals and does not round. Do not enable currencies requiring more than two fractional digits (for example BTC/ETH/BNB) until the money model is migrated to explicit decimal precision.
+- The current schema stores integer minor units. VNPay supports VND, PayPal checkout is allowlisted to USD, EUR, GBP, CAD and AUD, and Binance Pay checkout is conservatively allowlisted to USDT only. Amounts are formatted to zero or two decimals and are never rounded. Do not enable currencies requiring more than two fractional digits (for example BTC/ETH/BNB) until the money model is migrated to explicit decimal precision.
 - Checkout URL and provider checkout ID are persisted separately from the final provider payment/transaction ID.
 - Provider API failure marks the local attempt FAILED. A created provider order may remain unpaid until its provider expiry.
 
@@ -51,3 +57,6 @@ Use provider sandbox/test credentials and sandbox API endpoints for test environ
 Only verified provider webhooks may settle an invoice. PayPal capture endpoint only initiates capture and reports that it is awaiting the signed webhook. No live credentials, live payments, production database, VPS, DNS or production migrations are part of this PR.
 
 The new migration is additive. It must only be applied after the existing migration-lineage inspection and integration PR sequence; do not apply it directly to a legacy/shared database.
+
+
+See [the sandbox end-to-end runbook](./phase-0-2-payment-sandbox-runbook.md) for test-account setup, callback configuration and acceptance criteria.

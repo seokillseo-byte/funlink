@@ -228,7 +228,7 @@ model Plan {
   code String @unique
   name String
   priceMinor Int
-  currency String @default("VND") @db.VarChar(3)
+  currency String @default("VND") @db.VarChar(4)
   interval PlanInterval @default(MONTH)
   entitlements Json
   active Boolean @default(true)
@@ -263,7 +263,7 @@ model Invoice {
   number String @unique
   status InvoiceStatus @default(DRAFT)
   amountMinor Int
-  currency String @default("VND") @db.VarChar(3)
+  currency String @default("VND") @db.VarChar(4)
   planSnapshot Json
   lineItems Json
   dueAt DateTime?
@@ -286,7 +286,7 @@ model PaymentAttempt {
   idempotencyKey String @unique
   status PaymentStatus @default(PENDING)
   amountMinor Int
-  currency String @default("VND") @db.VarChar(3)
+  currency String @default("VND") @db.VarChar(4)
   paidAt DateTime?
   createdAt DateTime @default(now())
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Restrict)
