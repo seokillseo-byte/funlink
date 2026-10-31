@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { loadConfig } from "./config.js";
 import { buildApp } from "./app.js";
 import type { PrismaClient } from "@prisma/client";
@@ -24,18 +25,18 @@ function withEnv(values: Record<string,string>, run: () => Promise<void>) {
     globalThis.fetch = originalFetch;
   });
 }
-function fixture(role = "BILLING") {
+function fixture(role = "BILLING", currency = "VND") {
   let attempt: any = null;
   const invoice = {
     id:"invoice-1",tenantId:"tenant-1",number:"INV-2026-001",status:"OPEN",
-    amountMinor:125000,currency:"VND",dueAt:null,paidAt:null,createdAt:new Date("2026-10-01T00:00:00Z")
+    amountMinor:125000,currency,dueAt:null,paidAt:null,createdAt:new Date("2026-10-01T00:00:00Z")
   };
   const session = {
     revokedAt:null,expiresAt:new Date(Date.now()+60_000),
     user:{id:"user-1",status:"ACTIVE",emailVerifiedAt:new Date(),memberships:[{role,tenant:{status:"ACTIVE"}}]}
   };
   const prisma = {
-    session:{findUnique:async()=>session},
+    session:{findUnique:async(args:any)=>args.include.user.select.memberships.where.tenantId==="tenant-1"?session:{...session,user:{...session.user,memberships:[]}}},
     invoice:{
       findFirst:async({where}:any)=>where.tenantId==="tenant-1"&&where.id==="invoice-1"&&where.status==="OPEN"?invoice:null,
       findMany:async({where}:any)=>where.tenantId==="tenant-1"?[{...invoice,payments:attempt?[{id:attempt.id,provider:attempt.provider,status:attempt.status,providerCheckoutUrl:attempt.providerCheckoutUrl,createdAt:new Date(),paidAt:null}]:[]}]:[]
@@ -94,7 +95,7 @@ test("PayPal sandbox checkout and capture use the persisted order ID and wait fo
       if(url.endsWith("/v2/checkout/orders/PAYPAL-ORDER-123/capture"))return new Response(JSON.stringify({status:"COMPLETED"}),{status:201,headers:{"content-type":"application/json"}});
       throw new Error("Unexpected sandbox URL "+url);
     }) as typeof fetch;
-    const f=fixture(),app=makeApp(f.prisma);await app.ready();
+    const f=fixture("BILLING","USD"),app=makeApp(f.prisma);await app.ready();
     const created=await app.inject({method:"POST",url:"/v1/workspaces/tenant-1/invoices/invoice-1/checkout",headers,payload:{provider:"paypal"}});
     assert.equal(created.statusCode,201);
     const body=JSON.parse(String(calls.find(x=>x.url.endsWith("/v2/checkout/orders"))?.init?.body));
