@@ -50,6 +50,7 @@ async function processVerifiedPayment(db: PrismaClient, input: {
   provider: string;
   eventId: string;
   paymentAttemptId: string;
+  providerPaymentId?: string;
   amountMinor: number;
   currency: string;
   succeeded: boolean;
@@ -83,12 +84,24 @@ async function processVerifiedPayment(db: PrismaClient, input: {
       return { processed: false, reason: "payment_or_invoice_not_payable" };
     }
     const now = new Date();
-    await tx.paymentAttempt.update({
-      where: { id: payment.id },
-      data: { status: input.succeeded ? "SUCCEEDED" : "FAILED", ...(input.succeeded ? { paidAt: now } : {}) }
+    const paymentUpdate = await tx.paymentAttempt.updateMany({
+      where: { id: payment.id, status: "PENDING" },
+      data: {
+        status: input.succeeded ? "SUCCEEDED" : "FAILED",
+        ...(input.succeeded ? { paidAt: now } : {}),
+        ...(input.providerPaymentId ? { providerPaymentId: input.providerPaymentId } : {})
+      }
     });
+    if (paymentUpdate.count !== 1) {
+      await tx.webhookEvent.update({ where: { id: event.id }, data: { paymentAttemptId: payment.id, status: "FAILED", failureReason: "payment_attempt_already_processed" } });
+      return { processed: false, reason: "payment_attempt_already_processed" };
+    }
     if (input.succeeded) {
-      await tx.invoice.update({ where: { id: payment.invoiceId }, data: { status: "PAID", paidAt: now } });
+      const invoiceUpdate = await tx.invoice.updateMany({
+        where: { id: payment.invoiceId, status: "OPEN" },
+        data: { status: "PAID", paidAt: now }
+      });
+      if (invoiceUpdate.count !== 1) throw new Error("Invoice state changed during payment webhook transaction");
     }
     await tx.webhookEvent.update({
       where: { id: event.id },
@@ -119,6 +132,7 @@ export function nativePaymentWebhookRoutes(app: FastifyInstance, db: PrismaClien
         provider: "vnpay",
         eventId: params.vnp_TransactionNo,
         paymentAttemptId: params.vnp_TxnRef,
+        providerPaymentId: params.vnp_TransactionNo,
         amountMinor: amount / 100,
         currency: "VND",
         succeeded: params.vnp_ResponseCode === "00" && params.vnp_TransactionStatus === "00",
@@ -157,6 +171,7 @@ export function nativePaymentWebhookRoutes(app: FastifyInstance, db: PrismaClien
     try {
       const result = await processVerifiedPayment(db, {
         provider: "paypal", eventId: event.id, paymentAttemptId: attemptId,
+        providerPaymentId: typeof resource.id === "string" ? resource.id : undefined,
         amountMinor, currency, succeeded: captureCompleted, payload: event
       });
       if (!result.processed) return reply.code(202).send({ received: true, processed: false });
@@ -192,6 +207,7 @@ export function nativePaymentWebhookRoutes(app: FastifyInstance, db: PrismaClien
     try {
       const result = await processVerifiedPayment(db, {
         provider: "binancepay", eventId: String(event.bizId), paymentAttemptId: data.merchantTradeNo,
+        providerPaymentId: typeof data.transactionId === "string" ? data.transactionId : undefined,
         amountMinor, currency: data.currency, succeeded: true, payload: event
       });
       if (!result.processed) return reply.code(202).send({ returnCode: "FAIL", returnMessage: "Payment mismatch" });
