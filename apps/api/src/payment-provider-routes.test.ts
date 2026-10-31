@@ -122,7 +122,7 @@ test("Binance Pay valid signed callback updates payment and invoice atomically",
     bizType: "PAY", bizId: 123456789, bizStatus: "PAY_SUCCESS",
     data: JSON.stringify({ merchantTradeNo: "attempt-binance", totalFee: "10.00000000", currency: "USDT" })
   }));
-  const signedPayload = Buffer.concat([Buffer.from(timestamp + "\\n" + nonce + "\\n"), rawBody, Buffer.from("\\n")]);
+  const signedPayload = Buffer.concat([Buffer.from(timestamp + "\n" + nonce + "\n"), rawBody, Buffer.from("\n")]);
   const signature = cryptoSign("RSA-SHA256", signedPayload, privateKey).toString("base64");
   const response = await app.inject({
     method: "POST", url: "/v1/webhooks/binance-pay",
