@@ -19,17 +19,20 @@ export default function BillingReturn(){
     const auth=await fetch(API+"/v1/auth/me",{credentials:"include"});
     if(auth.status===401){window.location.href="/login?returnTo="+encodeURIComponent("/billing/return?"+params.toString());return;}
     if(!auth.ok)throw new Error("Không thể xác thực phiên đăng nhập.");
+    const authData=await auth.json();
+    const workspaceId=params.get("workspace")??authData.workspaces?.[0]?.id;
+    if(!workspaceId)throw new Error("Không tìm thấy workspace của giao dịch.");
     if(orderId){
-     const capture=await fetch(API+"/v1/workspaces/"+encodeURIComponent((await auth.json()).workspaces?.[0]?.id??"")+"/payment-attempts/"+encodeURIComponent(id)+"/paypal/capture",{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({orderId})});
+     const capture=await fetch(API+"/v1/workspaces/"+encodeURIComponent(workspaceId)+"/payment-attempts/"+encodeURIComponent(id)+"/paypal/capture",{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({orderId})});
      if(capture.status===401){window.location.href="/login";return;}
      // Capture may already have been completed; the signed webhook remains authoritative.
     }
     for(let i=0;i<12&&active;i++){
      const me=await fetch(API+"/v1/auth/me",{credentials:"include"});
      const meData=await me.json();
-     const workspaceId=new URLSearchParams(window.location.search).get("workspace")??meData.workspaces?.[0]?.id;
-     if(!workspaceId)throw new Error("Không tìm thấy workspace để tra cứu giao dịch.");
-     const response=await fetch(API+"/v1/workspaces/"+encodeURIComponent(workspaceId)+"/payment-attempts/"+encodeURIComponent(id),{credentials:"include"});
+     const currentWorkspaceId=params.get("workspace")??meData.workspaces?.[0]?.id;
+     if(!currentWorkspaceId)throw new Error("Không tìm thấy workspace để tra cứu giao dịch.");
+     const response=await fetch(API+"/v1/workspaces/"+encodeURIComponent(currentWorkspaceId)+"/payment-attempts/"+encodeURIComponent(id),{credentials:"include"});
      const data=await response.json();
      if(!response.ok)throw new Error(data.error??"Không thể tra cứu giao dịch.");
      const payment=data.paymentAttempt as Result;
