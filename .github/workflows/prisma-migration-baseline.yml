@@ -1,0 +1,87 @@
+name: Prisma migration baseline
+
+on:
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "scripts/db/**"
+      - "package.json"
+      - ".npmrc"
+      - ".github/workflows/prisma-migration-baseline.yml"
+  push:
+    branches:
+      - main
+      - "architecture/**"
+    paths:
+      - "prisma/**"
+      - "scripts/db/**"
+      - "package.json"
+      - ".npmrc"
+      - ".github/workflows/prisma-migration-baseline.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  migration-baseline:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: funlink_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d funlink_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/funlink_ci?schema=public
+      PSQL_DATABASE_URL: postgresql://ci:ci@localhost:5432/funlink_ci
+      SHADOW_DATABASE_URL: postgresql://ci:ci@localhost:5432/funlink_shadow
+      PGPASSWORD: ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Validate schema and generate client
+        run: |
+          pnpm db:validate
+          pnpm db:generate
+      - name: Create disposable shadow database
+        run: createdb -h localhost -U ci funlink_shadow
+      - name: Generate and commit initial migration baseline when absent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f prisma/migrations/0001_initial/migration.sql ]; then
+            mkdir -p prisma/migrations/0001_initial
+            pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0001_initial/migration.sql
+            test -s prisma/migrations/0001_initial/migration.sql
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add prisma/migrations/0001_initial/migration.sql
+            git commit -m "chore(db): add reviewed initial migration baseline"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+      - name: Apply versioned migration
+        run: pnpm exec prisma migrate deploy
+      - name: Verify repeated deploy is a no-op
+        run: pnpm exec prisma migrate deploy
+      - name: Verify schema and tenant isolation constraints
+        run: bash scripts/db/smoke-test.sh
+      - name: Verify migration history has no schema drift
+        run: bash scripts/db/check-migration-drift.sh
