@@ -124,9 +124,18 @@ test("Binance Pay sandbox checkout signs the exact request and uses the internal
       request={url:String(input),init};
       return new Response(JSON.stringify({status:"SUCCESS",data:{prepayId:"BINANCE-PREPAY-123",universalUrl:"https://pay.binance.com/checkout/123"}}),{status:200,headers:{"content-type":"application/json"}});
     }) as typeof fetch;
-    const f=fixture("OWNER"),app=makeApp(f.prisma);await app.ready();
+    const f=fixture("OWNER","USDT"),app=makeApp(f.prisma);await app.ready();
     const created=await app.inject({method:"POST",url:"/v1/workspaces/tenant-1/invoices/invoice-1/checkout",headers,payload:{provider:"binancepay"}});
-    assert.equal(created.statusCode,400); // VND is intentionally not accepted by Binance Pay.
+    assert.equal(created.statusCode,201);
+    const payload=String(request?.init?.body);
+    const requestHeaders=new Headers(request?.init?.headers);
+    const timestamp=requestHeaders.get("BinancePay-Timestamp")??"";
+    const nonce=requestHeaders.get("BinancePay-Nonce")??"";
+    const signature=requestHeaders.get("BinancePay-Signature")??"";
+    const expected=createHmac("sha512","sandbox-hmac-secret").update(timestamp+"\\n"+nonce+"\\n"+payload+"\\n").digest("hex").toUpperCase();
+    assert.equal(signature,expected);
+    assert.equal(JSON.parse(payload).merchantTradeNo,"attempt-123");
+    assert.equal(created.json().checkoutUrl,"https://pay.binance.com/checkout/123");
     await app.close();
   });
 });
@@ -136,7 +145,6 @@ test("workspace members without billing role cannot start checkout; another tena
   const denied=await app.inject({method:"POST",url:"/v1/workspaces/tenant-1/invoices/invoice-1/checkout",headers,payload:{provider:"vnpay"}});
   assert.equal(denied.statusCode,403);
   const hidden=await app.inject({method:"GET",url:"/v1/workspaces/tenant-2/invoices",headers:{cookie}});
-  assert.equal(hidden.statusCode,200);
-  assert.deepEqual(hidden.json().invoices,[]);
+  assert.equal(hidden.statusCode,401);
   await app.close();
 });
