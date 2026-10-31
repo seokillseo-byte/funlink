@@ -29,9 +29,9 @@ test("VNPay IPN validates signature, merchant and amount before transactional pa
         status: "PENDING", amountMinor: 1000, currency: "VND",
         invoice: { id: "invoice-1", status: "OPEN" }
       }),
-      update: async ({ data }: any) => { paymentStatus = data.status; return {}; }
+      updateMany: async ({ data }: any) => { paymentStatus = data.status; return { count: 1 }; }
     },
-    invoice: { update: async ({ data }: any) => { invoiceStatus = data.status; return {}; } }
+    invoice: { updateMany: async ({ data }: any) => { invoiceStatus = data.status; return { count: 1 }; } }
   };
   const db = { $transaction: async (callback: (value: any) => Promise<any>) => callback(tx) };
   const app = Fastify({ logger: false });
