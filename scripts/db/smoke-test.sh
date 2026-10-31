@@ -21,6 +21,21 @@ VALUES ('campaign_a','tenant_a','Campaign A',NOW());
 INSERT INTO "Link" ("id","tenantId","campaignId","slug","targetUrl","updatedAt")
 VALUES ('link_a','tenant_a','campaign_a','link-a','https://example.com',NOW());
 
+INSERT INTO "Domain" ("id","tenantId","hostname","verificationTokenHash","updatedAt")
+VALUES ('domain_a','tenant_a','a.example.com','hash-domain-a',NOW());
+
+INSERT INTO "LinkDomainSlug" ("id","tenantId","domainId","linkId","slug")
+VALUES ('mapping_a','tenant_a','domain_a','link_a','short-a');
+
+INSERT INTO "Category" ("id","tenantId","name","slug")
+VALUES ('category_a','tenant_a','Category A','category-a');
+
+INSERT INTO "Post" ("id","tenantId","categoryId","title","slug","content","updatedAt")
+VALUES ('post_a','tenant_a','category_a','Post A','post-a','Content A',NOW());
+
+INSERT INTO "MediaAsset" ("id","tenantId","postId","storageKey","publicUrl","mimeType","sizeBytes")
+VALUES ('media_a','tenant_a','post_a','tenant-a/post-a.webp','https://cdn.example.com/post-a.webp','image/webp',1024);
+
 DO $$
 BEGIN
   BEGIN
@@ -38,7 +53,45 @@ BEGIN
   EXCEPTION WHEN foreign_key_violation THEN
     RAISE NOTICE 'PASS: cross-tenant click reference rejected';
   END;
+
+  BEGIN
+    INSERT INTO "LinkDomainSlug" ("id","tenantId","domainId","linkId","slug")
+    VALUES ('mapping_bad_tenant','tenant_b','domain_a','link_a','short-bad');
+    RAISE EXCEPTION 'Cross-tenant domain/link mapping was incorrectly accepted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: cross-tenant domain/link mapping rejected';
+  END;
+
+  BEGIN
+    INSERT INTO "Post" ("id","tenantId","categoryId","title","slug","content","updatedAt")
+    VALUES ('post_bad_category','tenant_b','category_a','Bad Post','bad-post','Content',NOW());
+    RAISE EXCEPTION 'Cross-tenant post category reference was incorrectly accepted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: cross-tenant post category reference rejected';
+  END;
+
+  BEGIN
+    INSERT INTO "MediaAsset" ("id","tenantId","postId","storageKey","publicUrl","mimeType","sizeBytes")
+    VALUES ('media_bad_post','tenant_b','post_a','tenant-b/bad.webp','https://cdn.example.com/bad.webp','image/webp',512);
+    RAISE EXCEPTION 'Cross-tenant media/post reference was incorrectly accepted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: cross-tenant media/post reference rejected';
+  END;
+
+  BEGIN
+    DELETE FROM "Category" WHERE "id"='category_a';
+    RAISE EXCEPTION 'Deleting a referenced category should have been restricted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: referenced category deletion restricted';
+  END;
+
+  BEGIN
+    DELETE FROM "Post" WHERE "id"='post_a';
+    RAISE EXCEPTION 'Deleting a referenced post should have been restricted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: referenced post deletion restricted';
+  END;
 END $$;
 
-SELECT 'PASS: migration created expected tables and tenant-scoped foreign keys' AS result;
+SELECT 'PASS: migration created expected tables, tenant-scoped foreign keys, and safe delete behavior' AS result;
 SQL
