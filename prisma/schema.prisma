@@ -246,6 +246,7 @@ model Subscription {
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
   plan Plan @relation(fields:[planId], references:[id])
   invoices Invoice[]
+  @@unique([tenantId,id])
   @@unique([provider,providerSubscriptionId])
   @@index([tenantId,status])
 }
@@ -263,8 +264,9 @@ model Invoice {
   paidAt DateTime?
   createdAt DateTime @default(now())
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  subscription Subscription? @relation(fields:[subscriptionId], references:[id], onDelete:SetNull)
+  subscription Subscription? @relation(fields:[tenantId,subscriptionId], references:[tenantId,id], onDelete:Restrict)
   payments PaymentAttempt[]
+  @@unique([tenantId,id])
   @@index([tenantId,createdAt])
 }
 model PaymentAttempt {
@@ -280,7 +282,7 @@ model PaymentAttempt {
   paidAt DateTime?
   createdAt DateTime @default(now())
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  invoice Invoice @relation(fields:[invoiceId], references:[id], onDelete:Cascade)
+  invoice Invoice @relation(fields:[tenantId,invoiceId], references:[tenantId,id], onDelete:Cascade)
   webhookEvents WebhookEvent[]
   @@unique([provider,providerPaymentId])
   @@index([tenantId,status])
