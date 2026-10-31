@@ -137,6 +137,27 @@ BEGIN
   END;
 
   BEGIN
+    DELETE FROM "Subscription" WHERE "id"='subscription_a';
+    RAISE EXCEPTION 'Deleting a subscription referenced by an invoice should have been restricted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: referenced subscription deletion restricted';
+  END;
+
+  BEGIN
+    DELETE FROM "Invoice" WHERE "id"='invoice_a';
+    RAISE EXCEPTION 'Deleting an invoice referenced by a payment attempt should have been restricted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: invoice with payment attempt deletion restricted';
+  END;
+
+  BEGIN
+    DELETE FROM "Tenant" WHERE "id"='tenant_a';
+    RAISE EXCEPTION 'Deleting a tenant with billing records should have been restricted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: tenant with billing records deletion restricted';
+  END;
+
+  BEGIN
     DELETE FROM "Category" WHERE "id"='category_a';
     RAISE EXCEPTION 'Deleting a referenced category should have been restricted';
   EXCEPTION WHEN foreign_key_violation THEN
