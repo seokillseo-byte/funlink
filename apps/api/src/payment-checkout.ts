@@ -27,8 +27,8 @@ function returnUrls(id: string) {
 const enc = (v: string) => encodeURIComponent(v).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
 function vnpayDate(d: Date) {
   const p = new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(d);
-  const v = Object.fromEntries(p.filter(x=>x.type!=="literal").map(x=>[x.type,x.value]));
-  return v.year+v.month+v.day+v.hour+v.minute+v.second;
+  const part = (type: string) => p.find(x => x.type === type)?.value ?? "";
+  return part("year")+part("month")+part("day")+part("hour")+part("minute")+part("second");
 }
 export function buildVnpayCheckoutUrl(input: {attemptId:string;invoiceNumber:string;amountMinor:number;ipAddress:string;now?:Date}) {
   const endpoint=httpsBase("VNPAY_PAYMENT_URL"), secret=required("VNPAY_HASH_SECRET");
