@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, sign as rsaSign } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -73,7 +73,7 @@ async function createPaypal(input:{attemptId:string;invoiceId:string;invoiceNumb
   return {id:data.id,url:approval.toString()};
 }
 export function signBinancePayRequest(body:string,timestamp:string,nonce:string,privateKey:string) {
-  return rsaSign("RSA-SHA256",Buffer.from(timestamp+"\n"+nonce+"\n"+body+"\n"),privateKey).toString("base64");
+  return createHmac("sha512",privateKey).update(timestamp+"\n"+nonce+"\n"+body+"\n").digest("hex").toUpperCase();
 }
 async function createBinance(input:{attemptId:string;invoiceNumber:string;amountMinor:number;currency:string}) {
   const base=httpsBase("BINANCE_PAY_API_BASE_URL"),urls=returnUrls(input.attemptId);
@@ -85,7 +85,7 @@ async function createBinance(input:{attemptId:string;invoiceNumber:string;amount
     returnUrl:urls.ret,cancelUrl:urls.cancel,webhookUrl:required("BINANCE_PAY_WEBHOOK_URL"),orderExpireTime:Date.now()+900_000
   });
   const response=await fetch(new URL("/binancepay/openapi/v2/order",base),{
-    method:"POST",headers:{"Content-Type":"application/json","BinancePay-Timestamp":timestamp,"BinancePay-Nonce":nonce,"BinancePay-Certificate-SN":required("BINANCE_PAY_CERTIFICATE_SN"),"BinancePay-Signature":signBinancePayRequest(body,timestamp,nonce,required("BINANCE_PAY_PRIVATE_KEY")),"X-MBX-APIKEY":required("BINANCE_PAY_API_KEY")},
+    method:"POST",headers:{"Content-Type":"application/json","BinancePay-Timestamp":timestamp,"BinancePay-Nonce":nonce,"BinancePay-Certificate-SN":required("BINANCE_PAY_CERTIFICATE_SN"),"BinancePay-Signature":signBinancePayRequest(body,timestamp,nonce,required("BINANCE_PAY_API_SECRET"))},
     body,signal:AbortSignal.timeout(12_000),redirect:"error"
   });
   if(!response.ok) throw new Error("Binance Pay order creation failed");
