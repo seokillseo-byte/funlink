@@ -1,6 +1,7 @@
 # Phase 0.2 — Tenant isolation and billing review checklist
 
-- [ ] Prisma schema formatting and validation passes with pinned toolchain.
+- [x] Prisma schema formatting and validation passes with pinned toolchain (GitHub Actions run 41160905408).
+- [x] PostgreSQL 16 migration applies cleanly to a disposable database (run 41160905401).
 - [x] PostgreSQL fixture proves cross-tenant LinkDomainSlug insert fails.
 - [x] PostgreSQL fixture proves ClickEvent cannot point to another tenant's Link.
 - [x] PostgreSQL fixture proves Link cannot reference another tenant's Campaign.
@@ -13,7 +14,9 @@
 - [ ] Invoice snapshot remains unchanged after plan price/entitlements change.
 - [x] No migration is run against production during this phase.
 - [x] PostgreSQL fixture proves referenced Category/Post deletion is restricted until the optional relation is explicitly detached.
-- [ ] CI schema validation and PostgreSQL integration workflow pass.
+- [x] CI schema validation and PostgreSQL 16 integration workflow pass on commit d5cd07ca6b31c0e7607dd745f317e54a78b64c30.
+- [ ] Generated SQL artifact reviewed and committed as a versioned migration.
 - [ ] Domain verification service stores only a hash and validates expiry/constant-time comparison.
 - [ ] Webhook handler verifies raw-body signatures before any payment/subscription mutation.
 - [ ] Invoice snapshot immutability is enforced and tested in the billing service.
+- [ ] Legacy JSON importer passes dry-run, reconciliation, replay/idempotency and rollback rehearsal.
