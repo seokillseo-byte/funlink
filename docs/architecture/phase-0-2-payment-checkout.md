@@ -33,7 +33,7 @@ Set values in the API deployment secret store, not in source control:
 - `PAYMENT_RETURN_URL`, optional `PAYMENT_CANCEL_URL`
 - VNPay: `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAYMENT_URL`
 - PayPal: `PAYPAL_API_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and the existing `PAYPAL_WEBHOOK_ID`
-- Binance Pay: `BINANCE_PAY_API_BASE_URL`, `BINANCE_PAY_API_KEY`, `BINANCE_PAY_PRIVATE_KEY`, `BINANCE_PAY_CERTIFICATE_SN`, `BINANCE_PAY_WEBHOOK_URL`
+- Binance Pay: `BINANCE_PAY_API_BASE_URL`, `BINANCE_PAY_API_KEY`, `BINANCE_PAY_API_SECRET`, `BINANCE_PAY_CERTIFICATE_SN`, `BINANCE_PAY_WEBHOOK_URL`
 
 Use provider sandbox/test credentials and sandbox API endpoints for test environments. Never put merchant credentials in `.env.example`, commits or browser code.
 
@@ -41,7 +41,7 @@ Use provider sandbox/test credentials and sandbox API endpoints for test environ
 
 - VNPay is VND-only. The VNPAY request amount is the invoice's VND amount multiplied by 100, and the request is signed with HMAC-SHA512.
 - PayPal uses Orders v2 with CAPTURE intent and a server-side OAuth token. VND is rejected because PayPal does not support it as a checkout currency.
-- Binance Pay request signing uses RSA-SHA256 over timestamp + LF + nonce + LF + exact JSON body + LF.
+- Binance Pay request signing uses HMAC-SHA512 over timestamp + LF + nonce + LF + exact JSON body + LF; send the uppercase hexadecimal signature in BinancePay-Signature.
 - The current schema stores integer minor units. The checkout adapter formats supported currencies to zero or two decimals and does not round. Do not enable currencies requiring more than two fractional digits (for example BTC/ETH/BNB) until the money model is migrated to explicit decimal precision.
 - Checkout URL and provider checkout ID are persisted separately from the final provider payment/transaction ID.
 - Provider API failure marks the local attempt FAILED. A created provider order may remain unpaid until its provider expiry.
