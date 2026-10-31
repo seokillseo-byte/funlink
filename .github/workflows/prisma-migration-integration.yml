@@ -66,9 +66,13 @@ jobs:
           mkdir -p artifacts
           pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > artifacts/0001_initial.sql
           test -s artifacts/0001_initial.sql
-      - name: Apply migration to disposable PostgreSQL
-        run: psql "$PSQL_DATABASE_URL" -v ON_ERROR_STOP=1 -f artifacts/0001_initial.sql
-      - name: Verify schema and tenant isolation constraints
+      - name: Apply committed migrations to disposable PostgreSQL
+        run: pnpm db:migrate:deploy
+      - name: Verify committed migration history
+        run: |
+          migration_count="$(psql "$PSQL_DATABASE_URL" -Atqc 'SELECT count(*) FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL;')"
+          test "$migration_count" -ge 6
+      - name: Verify schema, tenant isolation and invoice immutability
         run: bash scripts/db/smoke-test.sh
       - name: Upload generated migration SQL
         uses: actions/upload-artifact@v4
