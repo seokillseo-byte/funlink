@@ -43,8 +43,9 @@ This phase hardens the proposed Prisma model before any production migration. It
 - Existing invoices need a historical snapshot policy. Do not invent missing plan details; preserve available amounts and mark unknown snapshot fields explicitly.
 - Existing click events must be assigned tenant IDs from their owning links, not inferred from user input.
 - Unique global `Link.slug` is retained for the default short host. Custom host slugs are unique by `domainId + slug`.
-- Composite optional relations use restrictive deletion behavior where the tenant key itself is required. The service must explicitly detach/reassign optional records before deleting their parent.
+- Optional composite relations (`Post -> Category` and `MediaAsset -> Post`) use `onDelete: Restrict`. PostgreSQL cannot safely apply `SetNull` to a composite foreign key when `tenantId` is required. The service must explicitly detach/reassign the optional `categoryId` or `postId` before deleting the parent.
+- `Link -> Campaign` also uses `Restrict`; unlink links explicitly before deleting a campaign. These rules prevent accidental tenant-key nulling and silent data loss.
 
 ## Validation status
 
-**Not yet validated by Prisma CLI and no SQL migration has been generated or applied.** This repository snapshot currently contains architecture/schema artifacts only; the migration must be generated when the application workspace and pinned Prisma toolchain are added. This PR is a reviewable design hardening step, not a production-ready database rollout.
+The pinned Prisma toolchain and PostgreSQL 16 integration workflow are present on the stacked implementation branch. The smoke test now covers cross-tenant campaign, click, domain/link mapping, post/category and media/post references, plus restrictive deletion behavior. The checks still must run successfully in GitHub Actions before this phase is considered validated. Generated SQL remains a disposable CI artifact until reviewed and committed as a versioned migration. No production database or server has been touched.
