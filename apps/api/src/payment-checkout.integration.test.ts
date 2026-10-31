@@ -71,6 +71,7 @@ test("VNPay sandbox checkout flow creates a signed URL and exposes tenant-scoped
     assert.equal(checkout.searchParams.get("vnp_TxnRef"),"attempt-123");
     assert.equal(checkout.searchParams.get("vnp_Amount"),"12500000");
     assert.ok(checkout.searchParams.get("vnp_SecureHash"));
+    assert.equal(new URL(checkout.searchParams.get("vnp_ReturnUrl")!).searchParams.get("workspace"),"tenant-1");
     const invoices=await app.inject({method:"GET",url:"/v1/workspaces/tenant-1/invoices",headers:{cookie}});
     assert.equal(invoices.statusCode,200);
     assert.equal(invoices.json().invoices[0].payments[0].provider,"vnpay");
@@ -101,6 +102,7 @@ test("PayPal sandbox checkout and capture use the persisted order ID and wait fo
     const body=JSON.parse(String(calls.find(x=>x.url.endsWith("/v2/checkout/orders"))?.init?.body));
     assert.equal(body.purchase_units[0].custom_id,"attempt-123");
     assert.equal(body.intent,"CAPTURE");
+    assert.equal(new URL(body.payment_source.paypal.experience_context.return_url).searchParams.get("workspace"),"tenant-1");
     assert.equal(created.json().checkoutUrl,"https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-ORDER-123");
     const mismatch=await app.inject({method:"POST",url:"/v1/workspaces/tenant-1/payment-attempts/attempt-123/paypal/capture",headers:{cookie,"content-type":"application/json"},payload:{orderId:"SOME-OTHER-ORDER"}});
     assert.equal(mismatch.statusCode,409);
@@ -136,6 +138,7 @@ test("Binance Pay sandbox checkout signs the exact request and uses the internal
     const expected=createHmac("sha512","sandbox-hmac-secret").update(timestamp+"\n"+nonce+"\n"+payload+"\n").digest("hex").toUpperCase();
     assert.equal(signature,expected);
     assert.equal(JSON.parse(payload).merchantTradeNo,"attempt-123");
+    assert.equal(new URL(JSON.parse(payload).returnUrl).searchParams.get("workspace"),"tenant-1");
     assert.equal(created.json().checkoutUrl,"https://pay.binance.com/checkout/123");
     await app.close();
   });
