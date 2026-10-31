@@ -350,7 +350,7 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  category Category? @relation(fields:[tenantId,categoryId], references:[tenantId,id], onDelete:SetNull)
+  category Category? @relation(fields:[tenantId,categoryId], references:[tenantId,id], onDelete:Restrict)
   seo SeoMetadata?
   media MediaAsset[]
   @@unique([tenantId,id])
@@ -379,6 +379,6 @@ model MediaAsset {
   altText String?
   createdAt DateTime @default(now())
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
-  post Post? @relation(fields:[tenantId,postId], references:[tenantId,id], onDelete:SetNull)
+  post Post? @relation(fields:[tenantId,postId], references:[tenantId,id], onDelete:Restrict)
   @@index([tenantId,createdAt])
 }
