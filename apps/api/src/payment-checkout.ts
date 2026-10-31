@@ -107,11 +107,10 @@ async function access(request:any,db:PrismaClient,tenantId:string) {
 type Provider="vnpay"|"paypal"|"binancepay";
 const paypalCurrencies=new Set(["USD","EUR","GBP","CAD","AUD"]);
 function currencyAllowed(provider:Provider,currency:string) {
+  if(provider==="binancepay")return currency==="USDT";
   if(!/^[A-Z]{3}$/.test(currency))return false;
   if(provider==="vnpay")return currency==="VND";
-  if(provider==="paypal")return paypalCurrencies.has(currency);
-  // Current schema stores integer minor units: do not claim support for 8-decimal crypto amounts.
-  return currency === "USDT";
+  return paypalCurrencies.has(currency);
 }
 export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
   app.get("/v1/workspaces/:tenantId/invoices",async(req,reply)=>{
