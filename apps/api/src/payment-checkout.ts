@@ -105,10 +105,11 @@ async function access(request:any,db:PrismaClient,tenantId:string) {
   return {userId:s.user.id,denied:!["OWNER","ADMIN","BILLING"].includes(m.role)};
 }
 type Provider="vnpay"|"paypal"|"binancepay";
+const paypalCurrencies=new Set(["USD","EUR","GBP","CAD","AUD"]);
 function currencyAllowed(provider:Provider,currency:string) {
   if(!/^[A-Z]{3}$/.test(currency))return false;
   if(provider==="vnpay")return currency==="VND";
-  if(provider==="paypal")return currency!=="VND";
+  if(provider==="paypal")return paypalCurrencies.has(currency);
   // Current schema stores integer minor units: do not claim support for 8-decimal crypto amounts.
   return currency === "USDT";
 }
