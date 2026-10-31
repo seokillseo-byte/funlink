@@ -20,6 +20,7 @@ function returnUrls(id: string) {
   const ret = new URL(required("PAYMENT_RETURN_URL"));
   const cancel = new URL(process.env.PAYMENT_CANCEL_URL || ret.toString());
   if (!["https:","http:"].includes(ret.protocol) || !["https:","http:"].includes(cancel.protocol)) throw new Error("Invalid payment return URL");
+  if (process.env.NODE_ENV === "production" && (ret.protocol !== "https:" || cancel.protocol !== "https:")) throw new Error("Production payment return URLs must use HTTPS");
   ret.searchParams.set("payment_attempt", id); cancel.searchParams.set("payment_attempt", id);
   return { ret: ret.toString(), cancel: cancel.toString() };
 }
@@ -134,7 +135,7 @@ export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
       if(provider==="vnpay")result={id:attempt.id,url:buildVnpayCheckoutUrl({attemptId:attempt.id,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,ipAddress:req.ip})};
       else if(provider==="paypal")result=await createPaypal({attemptId:attempt.id,invoiceId:invoice.id,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,currency:invoice.currency});
       else result=await createBinance({attemptId:attempt.id,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,currency:invoice.currency});
-      await db.paymentAttempt.updateMany({where:{id:attempt.id,tenantId:p.data.tenantId,status:"PENDING"},data:{providerCheckoutId:result.id,providerCheckoutUrl:result.url}});
+      await db.paymentAttempt.updateMany({where:{id:attempt.id,tenantId:p.data.tenantId},data:{providerCheckoutId:result.id,providerCheckoutUrl:result.url}});
       return reply.code(201).send({paymentAttemptId:attempt.id,provider,checkoutUrl:result.url,reused:false});
     } catch(error) {
       req.log.error({err:error,provider,paymentAttemptId:attempt.id},"Checkout creation failed");
