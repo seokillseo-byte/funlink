@@ -112,7 +112,7 @@ export function nativePaymentWebhookRoutes(app: FastifyInstance, db: PrismaClien
       return reply.code(200).send({ RspCode: "99", Message: "Invalid transaction data" });
     }
     const amount = Number(params.vnp_Amount);
-    if (!Number.isSafeInteger(amount) || amount <= 0) return reply.code(200).send({ RspCode: "04", Message: "Invalid amount" });
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount % 100 !== 0) return reply.code(200).send({ RspCode: "04", Message: "Invalid amount" });
     try {
       const result = await processVerifiedPayment(db, {
         provider: "vnpay",
@@ -145,7 +145,7 @@ export function nativePaymentWebhookRoutes(app: FastifyInstance, db: PrismaClien
     const captureCompleted = event.event_type === "PAYMENT.CAPTURE.COMPLETED" && resource.status === "COMPLETED";
     const captureFailed = event.event_type === "PAYMENT.CAPTURE.DENIED";
     if (!captureCompleted && !captureFailed) return { received: true, ignored: true };
-    const attemptId = resource.custom_id ?? resource.invoice_id;
+    const attemptId = resource.custom_id;
     const amountText = resource.amount?.value;
     const currency = resource.amount?.currency_code;
     if (typeof attemptId !== "string" || typeof amountText !== "string" || typeof currency !== "string") {
