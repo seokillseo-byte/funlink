@@ -281,6 +281,8 @@ model PaymentAttempt {
   invoiceId String
   provider String
   providerPaymentId String?
+  providerCheckoutId String?
+  providerCheckoutUrl String?
   idempotencyKey String @unique
   status PaymentStatus @default(PENDING)
   amountMinor Int
@@ -291,6 +293,7 @@ model PaymentAttempt {
   invoice Invoice @relation(fields:[tenantId,invoiceId], references:[tenantId,id], onDelete:Restrict)
   webhookEvents WebhookEvent[]
   @@unique([provider,providerPaymentId])
+  @@unique([provider,providerCheckoutId])
   @@index([tenantId,status])
 }
 model WebhookEvent {
