@@ -95,6 +95,8 @@ model User {
   sessions Session[]
   memberships TenantMember[]
   auditLogs AuditLog[] @relation("AuditActor")
+  profile UserProfile?
+  authTokens AuthToken[]
 }
 model Session {
   id String @id @default(cuid())
@@ -114,6 +116,7 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   members TenantMember[]
+  invitations WorkspaceInvitation[]
   links Link[]
   domains Domain[]
   campaigns Campaign[]
@@ -175,7 +178,9 @@ model Domain {
   id String @id @default(cuid())
   tenantId String
   hostname String @unique
-  verificationTokenHash String @unique
+  verificationTokenHash String? @unique
+  verificationExpiresAt DateTime?
+  verificationAttempts Int @default(0)
   status DomainStatus @default(PENDING_VERIFICATION)
   tlsStatus TlsStatus @default(NOT_CONFIGURED)
   verifiedAt DateTime?
@@ -187,6 +192,7 @@ model Domain {
   slugMappings LinkDomainSlug[]
   @@unique([tenantId,id])
   @@index([tenantId,status])
+  @@index([tenantId,status,verificationExpiresAt])
 }
 model LinkDomainSlug {
   id String @id @default(cuid())
@@ -383,4 +389,73 @@ model MediaAsset {
   tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
   post Post? @relation(fields:[tenantId,postId], references:[tenantId,id], onDelete:Restrict)
   @@index([tenantId,createdAt])
+}
+
+model UserProfile {
+ id String @id @default(cuid())
+ userId String @unique
+ phone String?
+ company String?
+ jobTitle String?
+ website String?
+ location String?
+ bio String?
+ avatarUrl String?
+ timezone String @default("Asia/Ho_Chi_Minh")
+ locale String @default("vi-VN")
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+}
+model SitePage {
+ id String @id @default(cuid())
+ slug String @unique
+ title String
+ content Json
+ status PostStatus @default(DRAFT)
+ metaTitle String?
+ metaDescription String?
+ canonicalUrl String?
+ ogTitle String?
+ ogDescription String?
+ ogImageUrl String?
+ robots String @default("index,follow")
+ schemaJson Json?
+ publishedAt DateTime?
+ updatedAt DateTime @updatedAt
+ createdAt DateTime @default(now())
+ @@index([status,publishedAt])
+}
+
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+model AuthToken {
+  id String @id @default(cuid())
+  userId String
+  tokenHash String @unique
+  purpose AuthTokenPurpose
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  @@index([userId,purpose,expiresAt])
+}
+
+
+model WorkspaceInvitation {
+  id String @id @default(cuid())
+  tenantId String
+  email String
+  role TenantRole @default(MEMBER)
+  tokenHash String @unique
+  invitedById String
+  expiresAt DateTime
+  acceptedAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  tenant Tenant @relation(fields:[tenantId], references:[id], onDelete:Cascade)
+  @@index([tenantId,email,createdAt])
+  @@index([expiresAt])
 }

@@ -1,0 +1,56 @@
+name: Phase 1.0 SaaS foundation
+on:
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "apps/web/**"
+      - "prisma/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/phase-1-0-saas.yml"
+  push:
+    branches: ["saas/**"]
+    paths:
+      - "apps/api/**"
+      - "apps/web/**"
+      - "prisma/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/phase-1-0-saas.yml"
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: funlink
+          POSTGRES_PASSWORD: funlink_test
+          POSTGRES_DB: funlink_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U funlink -d funlink_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://funlink:funlink_test@localhost:5432/funlink_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - uses: pnpm/action-setup@v4
+        with: {version: 10.12.1}
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm db:migrate:deploy
+      - run: pnpm db:generate
+      - run: pnpm api:typecheck
+      - run: pnpm api:build
+      - run: pnpm api:test
+      - run: pnpm web:typecheck
+      - run: pnpm web:build

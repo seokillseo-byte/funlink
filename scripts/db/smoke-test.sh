@@ -146,7 +146,7 @@ BEGIN
   BEGIN
     DELETE FROM "Invoice" WHERE "id"='invoice_a';
     RAISE EXCEPTION 'Deleting an invoice referenced by a payment attempt should have been restricted';
-  EXCEPTION WHEN foreign_key_violation THEN
+  EXCEPTION WHEN check_violation OR foreign_key_violation THEN
     RAISE NOTICE 'PASS: invoice with payment attempt deletion restricted';
   END;
 
@@ -173,4 +173,34 @@ BEGIN
 END $$;
 
 SELECT 'PASS: migration created expected tables, tenant-scoped foreign keys, and safe delete behavior' AS result;
+SQL
+
+# Database trigger protects the immutable financial snapshot while allowing lifecycle state transitions.
+psql "$PSQL_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+BEGIN
+  BEGIN
+    UPDATE "Invoice" SET "planSnapshot" = '{"plan":"tampered"}'::jsonb WHERE "id" = 'invoice_a';
+    RAISE EXCEPTION 'Invoice plan snapshot mutation was incorrectly accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS: invoice plan snapshot is immutable';
+  END;
+
+  BEGIN
+    UPDATE "Invoice" SET "lineItems" = '[{"amountMinor":1}]'::jsonb WHERE "id" = 'invoice_a';
+    RAISE EXCEPTION 'Invoice line item mutation was incorrectly accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS: invoice line items are immutable';
+  END;
+
+  BEGIN
+    UPDATE "Invoice" SET "amountMinor" = 1 WHERE "id" = 'invoice_a';
+    RAISE EXCEPTION 'Invoice amount mutation was incorrectly accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS: invoice amount is immutable';
+  END;
+END $$;
+
+UPDATE "Invoice" SET "status" = 'OPEN' WHERE "id" = 'invoice_a';
+SELECT 'PASS: invoice lifecycle status remains updateable' AS result;
 SQL
