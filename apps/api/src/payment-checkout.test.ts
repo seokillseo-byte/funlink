@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateKeyPairSync, verify as rsaVerify } from "node:crypto";
+import { createHmac } from "node:crypto";
 import Fastify from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import { buildVnpayCheckoutUrl, formatMinorAmount, paymentCheckoutRoutes, signBinancePayRequest } from "./payment-checkout.js";
@@ -47,15 +47,15 @@ test("VNPay checkout URL uses internal attempt ID and a verifiable HMAC-SHA512 s
   }
 });
 
-test("Binance Pay request signature covers timestamp, nonce and exact serialized body", () => {
-  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+test("Binance Pay request signature uses HMAC-SHA512 and uppercase hexadecimal", () => {
+  const secret = "binance-test-secret";
   const body = '{"merchantTradeNo":"attempt-1","orderAmount":10.25,"currency":"USDT"}';
   const timestamp = "1793431200000";
   const nonce = "0123456789abcdef0123456789abcdef";
-  const signature = signBinancePayRequest(body, timestamp, nonce, privateKey);
-  const payload = Buffer.from(timestamp + "\n" + nonce + "\n" + body + "\n");
-  assert.equal(rsaVerify("RSA-SHA256", payload, publicKey, Buffer.from(signature, "base64")), true);
-  assert.equal(rsaVerify("RSA-SHA256", Buffer.from(timestamp + "\n" + nonce + "\n" + body + " \n"), publicKey, Buffer.from(signature, "base64")), false);
+  const signature = signBinancePayRequest(body, timestamp, nonce, secret);
+  const expected = createHmac("sha512", secret).update(timestamp + "\n" + nonce + "\n" + body + "\n").digest("hex").toUpperCase();
+  assert.equal(signature, expected);
+  assert.equal(/^[A-F0-9]{128}$/.test(signature), true);
 });
 
 test("checkout endpoint requires a valid workspace session before reading invoice data", async () => {
