@@ -82,7 +82,7 @@ async function createBinance(input:{attemptId:string;invoiceNumber:string;amount
   const body=JSON.stringify({
     env:{terminalType:"WEB"},merchantTradeNo:input.attemptId,
     orderAmount:Number(formatMinorAmount(input.amountMinor,input.currency)),currency:input.currency,
-    goods:{goodsType:"02",goodsCategory:"Z000",referenceGoodsId:input.invoiceNumber.slice(0,64),goodsName:("FunLink invoice "+input.invoiceNumber).slice(0,256)},
+    goods:{goodsType:"02",goodsCategory:"Z000",referenceGoodsId:input.attemptId,goodsName:"FunLink subscription"},
     returnUrl:urls.ret,cancelUrl:urls.cancel,webhookUrl:required("BINANCE_PAY_WEBHOOK_URL"),orderExpireTime:Date.now()+900_000
   });
   const response=await fetch(new URL("/binancepay/openapi/v2/order",base),{
@@ -109,7 +109,7 @@ function currencyAllowed(provider:Provider,currency:string) {
   if(provider==="vnpay")return currency==="VND";
   if(provider==="paypal")return currency!=="VND";
   // Current schema stores integer minor units: do not claim support for 8-decimal crypto amounts.
-  return ["USDT","USDC"].includes(currency);
+  return currency === "USDT";
 }
 export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
   app.post("/v1/workspaces/:tenantId/invoices/:invoiceId/checkout",async(req,reply)=>{
