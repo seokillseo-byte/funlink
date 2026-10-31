@@ -33,7 +33,7 @@ Set values in the API deployment secret store, not in source control:
 - `PAYMENT_RETURN_URL`, optional `PAYMENT_CANCEL_URL`
 - VNPay: `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAYMENT_URL`
 - PayPal: `PAYPAL_API_BASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and the existing `PAYPAL_WEBHOOK_ID`
-- Binance Pay: `BINANCE_PAY_API_BASE_URL`, `BINANCE_PAY_API_KEY`, `BINANCE_PAY_API_SECRET`, `BINANCE_PAY_CERTIFICATE_SN`, `BINANCE_PAY_WEBHOOK_URL`
+- Binance Pay: `BINANCE_PAY_API_BASE_URL`, `BINANCE_PAY_API_KEY` (API identity key), `BINANCE_PAY_API_SECRET` (HMAC secret), `BINANCE_PAY_WEBHOOK_URL`, plus the existing `BINANCE_PAY_CERTIFICATE_SN` and `BINANCE_PAY_PUBLIC_KEY` for incoming webhook signature verification
 
 Use provider sandbox/test credentials and sandbox API endpoints for test environments. Never put merchant credentials in `.env.example`, commits or browser code.
 
