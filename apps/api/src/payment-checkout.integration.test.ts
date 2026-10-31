@@ -119,16 +119,16 @@ test("Binance Pay sandbox checkout signs the exact request and uses the internal
     BINANCE_PAY_API_KEY:"sandbox-certificate-serial",BINANCE_PAY_API_SECRET:"sandbox-hmac-secret",
     BINANCE_PAY_WEBHOOK_URL:"https://api.funlink.example/v1/webhooks/binance-pay"
   },async()=>{
-    let request:{url:string;init?:RequestInit}|null=null;
+    const captured:{request?:{url:string;init?:RequestInit}}={};
     globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
-      request={url:String(input),init};
+      captured.request={url:String(input),init};
       return new Response(JSON.stringify({status:"SUCCESS",data:{prepayId:"BINANCE-PREPAY-123",universalUrl:"https://pay.binance.com/checkout/123"}}),{status:200,headers:{"content-type":"application/json"}});
     }) as typeof fetch;
     const f=fixture("OWNER","USDT"),app=makeApp(f.prisma);await app.ready();
     const created=await app.inject({method:"POST",url:"/v1/workspaces/tenant-1/invoices/invoice-1/checkout",headers,payload:{provider:"binancepay"}});
     assert.equal(created.statusCode,201);
-    const payload=String(request?.init?.body);
-    const requestHeaders=new Headers(request?.init?.headers);
+    const payload=String(captured.request?.init?.body);
+    const requestHeaders=new Headers(captured.request?.init?.headers);
     const timestamp=requestHeaders.get("BinancePay-Timestamp")??"";
     const nonce=requestHeaders.get("BinancePay-Nonce")??"";
     const signature=requestHeaders.get("BinancePay-Signature")??"";
