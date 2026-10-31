@@ -22,7 +22,7 @@ async function buildWebhookApp(db: Record<string, any>) {
 }
 
 test("valid raw-body HMAC verifies before payment and invoice mutation", async () => {
-  process.env.FUNLINK_WEBHOOK_SECRET_STRIPE = secret;
+  process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY = secret;
   let paymentUpdate: any;
   let invoiceUpdate: any;
   let webhookUpdate: any;
@@ -45,7 +45,7 @@ test("valid raw-body HMAC verifies before payment and invoice mutation", async (
   const app = await buildWebhookApp(db);
   const response = await app.inject({
     method: "POST",
-    url: "/v1/webhooks/stripe",
+    url: "/v1/webhooks/testpay",
     headers: { "content-type": "application/json", "x-funlink-signature": sign(raw) },
     payload: raw
   });
@@ -57,36 +57,36 @@ test("valid raw-body HMAC verifies before payment and invoice mutation", async (
   assert.equal(invoiceUpdate.status, "PAID");
   assert.equal(webhookUpdate.status, "PROCESSED");
   await app.close();
-  delete process.env.FUNLINK_WEBHOOK_SECRET_STRIPE;
+  delete process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY;
 });
 
 test("invalid signature is rejected before any database transaction", async () => {
-  process.env.FUNLINK_WEBHOOK_SECRET_STRIPE = secret;
+  process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY = secret;
   let transactionCalled = false;
   const app = await buildWebhookApp({
     $transaction: async () => { transactionCalled = true; throw new Error("must not run"); }
   });
   const response = await app.inject({
     method: "POST",
-    url: "/v1/webhooks/stripe",
+    url: "/v1/webhooks/testpay",
     headers: { "content-type": "application/json", "x-funlink-signature": sign(raw.replace("12900", "12901")) },
     payload: raw
   });
   assert.equal(response.statusCode, 401);
   assert.equal(transactionCalled, false);
   await app.close();
-  delete process.env.FUNLINK_WEBHOOK_SECRET_STRIPE;
+  delete process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY;
 });
 
 test("missing provider secret fails closed without touching billing data", async () => {
-  delete process.env.FUNLINK_WEBHOOK_SECRET_STRIPE;
+  delete process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY;
   let transactionCalled = false;
   const app = await buildWebhookApp({
     $transaction: async () => { transactionCalled = true; throw new Error("must not run"); }
   });
   const response = await app.inject({
     method: "POST",
-    url: "/v1/webhooks/stripe",
+    url: "/v1/webhooks/testpay",
     headers: { "content-type": "application/json", "x-funlink-signature": sign(raw) },
     payload: raw
   });
@@ -96,7 +96,7 @@ test("missing provider secret fails closed without touching billing data", async
 });
 
 test("duplicate provider event IDs are acknowledged without reprocessing", async () => {
-  process.env.FUNLINK_WEBHOOK_SECRET_STRIPE = secret;
+  process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY = secret;
   let paymentLookupCalled = false;
   const app = await buildWebhookApp({
     $transaction: async () => { throw { code: "P2002" }; },
@@ -104,7 +104,7 @@ test("duplicate provider event IDs are acknowledged without reprocessing", async
   });
   const response = await app.inject({
     method: "POST",
-    url: "/v1/webhooks/stripe",
+    url: "/v1/webhooks/testpay",
     headers: { "content-type": "application/json", "x-funlink-signature": sign(raw) },
     payload: raw
   });
@@ -112,11 +112,11 @@ test("duplicate provider event IDs are acknowledged without reprocessing", async
   assert.equal(response.json().duplicate, true);
   assert.equal(paymentLookupCalled, false);
   await app.close();
-  delete process.env.FUNLINK_WEBHOOK_SECRET_STRIPE;
+  delete process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY;
 });
 
 test("amount or currency mismatch is recorded but cannot mutate payment or invoice", async () => {
-  process.env.FUNLINK_WEBHOOK_SECRET_STRIPE = secret;
+  process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY = secret;
   let paymentUpdated = false;
   let invoiceUpdated = false;
   let failureReason = "";
@@ -137,7 +137,7 @@ test("amount or currency mismatch is recorded but cannot mutate payment or invoi
   const app = await buildWebhookApp({ $transaction: async (callback: (value: any) => Promise<any>) => callback(tx) });
   const response = await app.inject({
     method: "POST",
-    url: "/v1/webhooks/stripe",
+    url: "/v1/webhooks/testpay",
     headers: { "content-type": "application/json", "x-funlink-signature": sign(raw) },
     payload: raw
   });
@@ -146,5 +146,5 @@ test("amount or currency mismatch is recorded but cannot mutate payment or invoi
   assert.equal(invoiceUpdated, false);
   assert.equal(failureReason, "payment_amount_or_currency_mismatch");
   await app.close();
-  delete process.env.FUNLINK_WEBHOOK_SECRET_STRIPE;
+  delete process.env.FUNLINK_WEBHOOK_SECRET_TESTPAY;
 });
