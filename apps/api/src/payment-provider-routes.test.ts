@@ -136,7 +136,7 @@ test("Binance Pay valid signed callback updates payment and invoice atomically",
     },
     payload: rawBody
   });
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().returnCode, "SUCCESS");
   assert.equal(paymentStatus, "SUCCEEDED");
   assert.equal(invoiceStatus, "PAID");
