@@ -48,4 +48,10 @@ This phase hardens the proposed Prisma model before any production migration. It
 
 ## Validation status
 
-The pinned Prisma toolchain and PostgreSQL 16 integration workflow are present on the stacked implementation branch. The smoke test now covers cross-tenant campaign, click, domain/link mapping, post/category and media/post references, plus restrictive deletion behavior. The checks still must run successfully in GitHub Actions before this phase is considered validated. Generated SQL remains a disposable CI artifact until reviewed and committed as a versioned migration. No production database or server has been touched.
+GitHub Actions on commit `d5cd07ca6b31c0e7607dd745f317e54a78b64c30` is green:
+- Prisma schema formatting, validation and client generation: run [41160905408](https://github.com/seokillseo-byte/funlink/actions/runs/41160905408).
+- PostgreSQL 16 SQL generation, disposable-database apply, tenant isolation/delete smoke tests and artifact upload: run [41160905401](https://github.com/seokillseo-byte/funlink/actions/runs/41160905401).
+
+The SQL artifact `funlink-initial-postgres-migration` was generated and uploaded (artifact ID `13026703905`, SHA-256 `a967547a0129e6bd4987302de75882da34f6c8e4cbb85a38bf1daa66c904e186`). It is a temporary CI artifact and has not yet been reviewed or committed as a versioned migration. Do not treat artifact generation as SQL review completion.
+
+Domain verification service behavior, raw-body webhook signature verification and invoice snapshot immutability remain unverified application-level gates. No production database, server, DNS or legacy JSON data has been touched.
