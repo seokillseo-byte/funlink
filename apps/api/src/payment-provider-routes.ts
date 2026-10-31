@@ -35,8 +35,9 @@ function toMinorUnits(value: string, currency: string): number | null {
   const decimals = zeroDecimalCurrencies.has(code) ? 0 : 2;
   if (!/^(0|[1-9]\d*)(\.\d+)?$/.test(value)) return null;
   const [whole = "", fraction = ""] = value.split(".");
-  if (fraction.length > decimals) return null;
-  const amount = BigInt(whole) * (10n ** BigInt(decimals)) + BigInt((fraction + "0".repeat(decimals)).slice(0, decimals) || "0");
+  if (fraction.length > decimals && /[1-9]/.test(fraction.slice(decimals))) return null;
+  const normalizedFraction = fraction.slice(0, decimals);
+  const amount = BigInt(whole) * (10n ** BigInt(decimals)) + BigInt((normalizedFraction + "0".repeat(decimals)).slice(0, decimals) || "0");
   if (amount <= 0n || amount > 2_147_483_647n) return null;
   return Number(amount);
 }
