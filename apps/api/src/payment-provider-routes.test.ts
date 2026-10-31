@@ -109,9 +109,9 @@ test("Binance Pay valid signed callback updates payment and invoice atomically",
         status: "PENDING", amountMinor: 1000, currency: "USDT",
         invoice: { id: "invoice-binance", status: "OPEN" }
       }),
-      update: async ({ data }: any) => { paymentStatus = data.status; return {}; }
+      updateMany: async ({ data }: any) => { paymentStatus = data.status; return { count: 1 }; }
     },
-    invoice: { update: async ({ data }: any) => { invoiceStatus = data.status; return {}; } }
+    invoice: { updateMany: async ({ data }: any) => { invoiceStatus = data.status; return { count: 1 }; } }
   };
   const db = { $transaction: async (callback: (value: any) => Promise<any>) => callback(tx) };
   const app = Fastify({ logger: false });
