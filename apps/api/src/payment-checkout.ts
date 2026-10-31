@@ -85,7 +85,7 @@ async function createBinance(input:{attemptId:string;invoiceNumber:string;amount
     returnUrl:urls.ret,cancelUrl:urls.cancel,webhookUrl:required("BINANCE_PAY_WEBHOOK_URL"),orderExpireTime:Date.now()+900_000
   });
   const response=await fetch(new URL("/binancepay/openapi/v2/order",base),{
-    method:"POST",headers:{"Content-Type":"application/json","BinancePay-Timestamp":timestamp,"BinancePay-Nonce":nonce,"BinancePay-Certificate-SN":required("BINANCE_PAY_CERTIFICATE_SN"),"BinancePay-Signature":signBinancePayRequest(body,timestamp,nonce,required("BINANCE_PAY_API_SECRET"))},
+    method:"POST",headers:{"Content-Type":"application/json","BinancePay-Timestamp":timestamp,"BinancePay-Nonce":nonce,"BinancePay-Certificate-SN":required("BINANCE_PAY_API_KEY"),"BinancePay-Signature":signBinancePayRequest(body,timestamp,nonce,required("BINANCE_PAY_API_SECRET"))},
     body,signal:AbortSignal.timeout(12_000),redirect:"error"
   });
   if(!response.ok) throw new Error("Binance Pay order creation failed");
@@ -108,7 +108,7 @@ function currencyAllowed(provider:Provider,currency:string) {
   if(provider==="vnpay")return currency==="VND";
   if(provider==="paypal")return currency!=="VND";
   // Current schema stores integer minor units: do not claim support for 8-decimal crypto amounts.
-  return !["BTC","ETH","BNB"].includes(currency);
+  return ["USDT","USDC"].includes(currency);
 }
 export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
   app.post("/v1/workspaces/:tenantId/invoices/:invoiceId/checkout",async(req,reply)=>{
