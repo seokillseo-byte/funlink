@@ -1,0 +1,1 @@
+import AuthForm from "../ui/auth-form";export const metadata={title:"Đăng nhập | FunLink",robots:{index:false,follow:false}};export default function Login(){return <AuthForm mode="login"/>}
