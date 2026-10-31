@@ -8,7 +8,9 @@
 - Checks that the expected application tables exist.
 - Verifies that composite tenant-scoped foreign keys reject cross-tenant campaign, click-event, domain/link mapping, post/category and media/post references.
 - Verifies restrictive deletion of referenced Category and Post rows.
-- Uploads the generated `0001_initial.sql` as a short-lived workflow artifact for review.
+- Compares the generated SQL statements with the committed versioned migration (ignoring whitespace/comments).
+- Applies the committed migration through `prisma migrate deploy` to a fresh PostgreSQL 16 database and verifies its `_prisma_migrations` record.
+- Uploads generated schema SQL as a short-lived audit artifact.
 
 ## Latest validation
 
@@ -83,3 +85,12 @@ pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.p
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f 0001_initial.sql
 bash scripts/db/smoke-test.sh
 ```
+
+
+## Committed migration status
+
+- Migration: `prisma/migrations/20261031030000_init/migration.sql`.
+- Lock file: `prisma/migrations/migration_lock.toml`.
+- Latest successful Prisma validation: [41162395450](https://github.com/seokillseo-byte/funlink/actions/runs/41162395450).
+- Latest successful PostgreSQL 16 migration comparison/replay and smoke test: [41162395421](https://github.com/seokillseo-byte/funlink/actions/runs/41162395421).
+- No production migration has been run.
