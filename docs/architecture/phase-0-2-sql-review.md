@@ -55,3 +55,17 @@ The first SQL artifact is rejected for migration commitment because of the billi
 - Tenant, subscription, invoice and payment-attempt deletion paths now use restrictive behavior so financial history is not removed by cascading deletes.
 - Regression tests cover deleting a subscription with invoices, an invoice with payment attempts, and a tenant with billing records.
 - Latest CI for this revision: Prisma run [41162118561](https://github.com/seokillseo-byte/funlink/actions/runs/41162118561); PostgreSQL 16 run [41162118613](https://github.com/seokillseo-byte/funlink/actions/runs/41162118613). Results must be checked before approval.
+
+
+## Versioned migration and replay validation
+
+- Versioned migration committed on the Phase 0.2 branch: `prisma/migrations/20261031030000_init/migration.sql`.
+- Prisma migration lock committed: `prisma/migrations/migration_lock.toml`.
+- CI now generates SQL from `prisma/schema.prisma`, compares normalized SQL statements against the committed migration, applies the committed migration with `prisma migrate deploy` to disposable PostgreSQL 16, verifies the migration history row, then runs tenant/billing smoke tests.
+- Latest Prisma validation: [run 41162395450](https://github.com/seokillseo-byte/funlink/actions/runs/41162395450) — success.
+- Latest PostgreSQL 16 SQL comparison, versioned migration replay and tenant/billing smoke tests: [run 41162395421](https://github.com/seokillseo-byte/funlink/actions/runs/41162395421) — success.
+- The latest generated SQL artifact digest is `sha256:9fe73cbb30892706e7c10b2f776b1b6bb0283edf7ee53e168669a91252f24e70`; it is retained until 14 November 2026. The committed migration is the canonical source for future deploys.
+
+## Remaining application-level gates
+
+The migration validates the database shape and tenant constraints only. It does not implement or prove domain token generation/expiry/constant-time verification, webhook signature verification, or invoice snapshot immutability. These remain blocking Phase 0.2 work. The legacy JSON importer is also not implemented because the current branch contains no legacy JSON data files or importer source to inspect; its dry-run/reconciliation/rollback design is recorded in the Phase 0.4 runbook.
