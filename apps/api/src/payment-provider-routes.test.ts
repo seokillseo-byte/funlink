@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { createHmac, generateKeyPairSync, sign as cryptoSign } from "node:crypto";
 import Fastify from "fastify";
 import type { PrismaClient } from "@prisma/client";
-import { nativePaymentWebhookRoutes } from "./payment-provider-routes.js";\nimport { binanceCertificateSerial } from "./payment-providers.js";
+import { nativePaymentWebhookRoutes } from "./payment-provider-routes.js";
+import { binanceCertificateSerial } from "./payment-providers.js";
 
 const secret = "vnpay-route-test-secret";
 function signVnpay(params: Record<string, string>) {
