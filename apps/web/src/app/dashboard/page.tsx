@@ -5,7 +5,7 @@ const API=process.env.NEXT_PUBLIC_API_URL??"http://localhost:3013";
 type Workspace={id:string;name:string;slug:string;role:string};
 type Member={id:string;role:string;createdAt:string;user:{id:string;email:string;displayName:string|null;status:string;emailVerifiedAt:string|null}};
 type Invitation={id:string;email:string;role:string;createdAt:string;expiresAt:string};
-type Invoice={id:string;number:string;status:string;amountMinor:number;currency:string;dueAt:string|null;paidAt:string|null;createdAt:string;payments:Array<{id:string;provider:string;status:string;providerCheckoutUrl:string|null;createdAt:string;paidAt:string|null}>};
+type Invoice={id:string;number:string;status:string;amountMinor:number;currency:string;dueAt:string|null;paidAt:string|null;createdAt:string;payments:Array<{id:string;provider:string;status:string;createdAt:string;paidAt:string|null}>};
 type Me={user:{id:string;email:string;displayName:string|null};workspaces:Workspace[]};
 export default function Dashboard(){
  const [me,S]=useState<Me|null>(null),[error,E]=useState(""),[selected,Select]=useState(""),[members,Members]=useState<Member[]>([]),[invitations,Invitations]=useState<Invitation[]>([]),[memberMessage,MemberMessage]=useState(""),[inviteEmail,InviteEmail]=useState(""),[inviteRole,InviteRole]=useState("MEMBER"),[inviteMessage,InviteMessage]=useState(""),[inviteBusy,InviteBusy]=useState(false),[invoices,Invoices]=useState<Invoice[]>([]),[billingMessage,BillingMessage]=useState(""),[billingBusy,BillingBusy]=useState("");
