@@ -72,8 +72,8 @@ jobs:
           from pathlib import Path
           import re
           def statements(path):
-              sql = re.sub(r"--[^\\n]*", "", Path(path).read_text())
-              return [re.sub(r"\\s+", " ", item).strip() for item in sql.split(";") if item.strip()]
+              sql = re.sub(r"--[^\n]*", "", Path(path).read_text())
+              return [re.sub(r"\s+", " ", item).strip() for item in sql.split(";") if item.strip()]
           committed = statements("prisma/migrations/20261031030000_init/migration.sql")
           generated = statements("artifacts/0001_initial.sql")
           if committed != generated:
