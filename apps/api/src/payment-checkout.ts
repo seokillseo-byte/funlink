@@ -122,7 +122,7 @@ export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
       where:{tenantId:p.data.tenantId},
       orderBy:{createdAt:"desc"},
       take:50,
-      select:{id:true,number:true,status:true,amountMinor:true,currency:true,dueAt:true,paidAt:true,createdAt:true,payments:{orderBy:{createdAt:"desc"},take:3,select:{id:true,provider:true,status:true,providerCheckoutUrl:true,createdAt:true,paidAt:true}}}
+      select:{id:true,number:true,status:true,amountMinor:true,currency:true,dueAt:true,paidAt:true,createdAt:true,payments:{orderBy:{createdAt:"desc"},take:3,select:{id:true,provider:true,status:true,createdAt:true,paidAt:true}}}
     });
     return {invoices};
   });
