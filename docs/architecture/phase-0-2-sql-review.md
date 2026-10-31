@@ -41,8 +41,17 @@ Do not approve the initial SQL artifact. Once the corrected PostgreSQL workflow 
 - Invoice snapshot fields are JSONB columns, but immutability is not enforced by the SQL schema alone. A service/database policy and tests remain required.
 - Domain verification token hash storage is represented in the schema; generation, expiry, and constant-time comparison are application responsibilities and remain unverified.
 - Webhook signature verification is not supplied by the table definition and remains an application responsibility.
-- Tenant deletion cascades into billing records in this initial model. Before production adoption, the product's retention/deletion policy for invoices and payment evidence must be explicitly decided; legal/accounting retention requirements may require soft-close/anonymization instead of physical cascade deletion.
+- The first corrected SQL review exposed destructive tenant-to-billing cascades. The current branch changes Tenant -> Subscription, Tenant -> Invoice, Tenant -> PaymentAttempt, Invoice -> PaymentAttempt and Subscription -> Invoice delete behavior to Restrict. Tenant closure should use the existing `CLOSED` status; physical deletion is blocked while financial records remain. Smoke tests now assert these restrictions. This retention-safe revision still needs the current PostgreSQL 16 workflow to pass and the new artifact to be reviewed.
 
 ## Safety decision
 
 The first SQL artifact is rejected for migration commitment because of the billing tenant-isolation gaps above. The corrected schema and tests must pass CI and the newly generated SQL must be reviewed before any versioned migration is committed. No production database or legacy JSON has been touched.
+
+
+## Billing retention hardening (follow-up)
+
+- Schema commit: `1dd3ba5e833daa6fad86dc404465c16882a26e92`.
+- Smoke-test commit: `2d41de16954cdb112a846f5e0ae51b966894d66d`.
+- Tenant, subscription, invoice and payment-attempt deletion paths now use restrictive behavior so financial history is not removed by cascading deletes.
+- Regression tests cover deleting a subscription with invoices, an invoice with payment attempts, and a tenant with billing records.
+- Latest CI for this revision: Prisma run [41162118561](https://github.com/seokillseo-byte/funlink/actions/runs/41162118561); PostgreSQL 16 run [41162118613](https://github.com/seokillseo-byte/funlink/actions/runs/41162118613). Results must be checked before approval.
