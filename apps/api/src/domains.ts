@@ -17,7 +17,7 @@ const sha256 = (value: string) => createHash("sha256").update(value, "utf8").dig
 export const createDomainVerificationToken = () => randomBytes(32).toString("base64url");
 
 export function normalizeDomainHostname(value: string): string | null {
-  const ascii = domainToASCII(value.trim().replace(/\\.$/, "").toLowerCase());
+  const ascii = domainToASCII(value.trim().replace(/\.$/, "").toLowerCase());
   if (!ascii || ascii.length > 253 || isIP(ascii)) return null;
   const labels = ascii.split(".");
   if (labels.length < 2 || labels.some(label => label.length < 1 || label.length > 63)) return null;
