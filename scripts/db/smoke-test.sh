@@ -21,6 +21,9 @@ VALUES ('campaign_a','tenant_a','Campaign A',NOW());
 INSERT INTO "Link" ("id","tenantId","campaignId","slug","targetUrl","updatedAt")
 VALUES ('link_a','tenant_a','campaign_a','link-a','https://example.com',NOW());
 
+INSERT INTO "Link" ("id","tenantId","slug","targetUrl","updatedAt")
+VALUES ('link_b','tenant_b','link-b','https://example.org',NOW());
+
 INSERT INTO "Domain" ("id","tenantId","hostname","verificationTokenHash","updatedAt")
 VALUES ('domain_a','tenant_a','a.example.com','hash-domain-a',NOW());
 
@@ -65,10 +68,18 @@ BEGIN
 
   BEGIN
     INSERT INTO "LinkDomainSlug" ("id","tenantId","domainId","linkId","slug")
-    VALUES ('mapping_bad_tenant','tenant_b','domain_a','link_a','short-bad');
-    RAISE EXCEPTION 'Cross-tenant domain/link mapping was incorrectly accepted';
+    VALUES ('mapping_bad_domain','tenant_b','domain_a','link_b','short-bad-domain');
+    RAISE EXCEPTION 'Cross-tenant domain reference was incorrectly accepted';
   EXCEPTION WHEN foreign_key_violation THEN
-    RAISE NOTICE 'PASS: cross-tenant domain/link mapping rejected';
+    RAISE NOTICE 'PASS: cross-tenant domain reference rejected';
+  END;
+
+  BEGIN
+    INSERT INTO "LinkDomainSlug" ("id","tenantId","domainId","linkId","slug")
+    VALUES ('mapping_bad_link','tenant_a','domain_a','link_b','short-bad-link');
+    RAISE EXCEPTION 'Cross-tenant link reference was incorrectly accepted';
+  EXCEPTION WHEN foreign_key_violation THEN
+    RAISE NOTICE 'PASS: cross-tenant link reference rejected';
   END;
 
   BEGIN
