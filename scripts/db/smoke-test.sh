@@ -42,3 +42,52 @@ END $$;
 
 SELECT 'PASS: migration created expected tables and tenant-scoped foreign keys' AS result;
 SQL
+
+# Invoice financial snapshots and records must remain immutable after creation.
+psql "$PSQL_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO "Invoice" ("id","tenantId","number","amountMinor","planSnapshot","lineItems","createdAt")
+VALUES (
+  'invoice_immutable',
+  'tenant_a',
+  'INV-IMMUTABLE-001',
+  10000,
+  '{"plan":"starter","priceMinor":10000}'::jsonb,
+  '[{"description":"Starter monthly plan","amountMinor":10000}]'::jsonb,
+  NOW()
+);
+
+DO $$
+BEGIN
+  BEGIN
+    UPDATE "Invoice" SET "planSnapshot" = '{"plan":"tampered"}'::jsonb WHERE "id" = 'invoice_immutable';
+    RAISE EXCEPTION 'Invoice plan snapshot mutation was incorrectly accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS: invoice plan snapshot is immutable';
+  END;
+
+  BEGIN
+    UPDATE "Invoice" SET "lineItems" = '[]'::jsonb WHERE "id" = 'invoice_immutable';
+    RAISE EXCEPTION 'Invoice line item mutation was incorrectly accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS: invoice line items are immutable';
+  END;
+
+  BEGIN
+    UPDATE "Invoice" SET "amountMinor" = 1 WHERE "id" = 'invoice_immutable';
+    RAISE EXCEPTION 'Invoice amount mutation was incorrectly accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS: invoice amount and currency are immutable';
+  END;
+
+  BEGIN
+    DELETE FROM "Invoice" WHERE "id" = 'invoice_immutable';
+    RAISE EXCEPTION 'Invoice deletion was incorrectly accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS: invoice financial record deletion is blocked';
+  END;
+END $$;
+
+-- Lifecycle fields may still advance without changing the immutable snapshot.
+UPDATE "Invoice" SET "status" = 'OPEN' WHERE "id" = 'invoice_immutable';
+SELECT 'PASS: invoice lifecycle updates remain possible while snapshot fields stay immutable' AS result;
+SQL
