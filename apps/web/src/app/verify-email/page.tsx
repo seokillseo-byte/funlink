@@ -1,0 +1,5 @@
+"use client";
+import Link from "next/link";
+import {useEffect,useState} from "react";
+const API=process.env.NEXT_PUBLIC_API_URL??"http://localhost:3013";
+export default function VerifyEmail(){const [message,M]=useState("Đang xác minh email…");useEffect(()=>{const token=new URLSearchParams(location.search).get("token");if(!token){M("Liên kết xác minh không hợp lệ.");return;}fetch(API+"/v1/auth/verify-email",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token})}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error??"Không thể xác minh email");M("Email đã được xác minh. Bạn có thể đăng nhập.")}).catch(e=>M(e instanceof Error?e.message:"Không thể xác minh email"))},[]);return <main className="authPage"><section className="authCard"><h1>Xác minh email</h1><p role="status">{message}</p><Link className="button" href="/login">Đi đến đăng nhập</Link></section></main>}
