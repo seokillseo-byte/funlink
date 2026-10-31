@@ -16,12 +16,13 @@ function httpsBase(name: string) {
   if (u.protocol !== "https:" || u.username || u.password || u.search || u.hash) throw new Error(name + " must be an HTTPS base URL");
   return u;
 }
-function returnUrls(id: string) {
+function returnUrls(id: string, tenantId: string) {
   const ret = new URL(required("PAYMENT_RETURN_URL"));
   const cancel = new URL(process.env.PAYMENT_CANCEL_URL || ret.toString());
   if (!["https:","http:"].includes(ret.protocol) || !["https:","http:"].includes(cancel.protocol)) throw new Error("Invalid payment return URL");
   if (process.env.NODE_ENV === "production" && (ret.protocol !== "https:" || cancel.protocol !== "https:")) throw new Error("Production payment return URLs must use HTTPS");
   ret.searchParams.set("payment_attempt", id); cancel.searchParams.set("payment_attempt", id);
+  ret.searchParams.set("workspace", tenantId); cancel.searchParams.set("workspace", tenantId);
   return { ret: ret.toString(), cancel: cancel.toString() };
 }
 const enc = (v: string) => encodeURIComponent(v).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
@@ -30,7 +31,7 @@ function vnpayDate(d: Date) {
   const part = (type: string) => p.find(x => x.type === type)?.value ?? "";
   return part("year")+part("month")+part("day")+part("hour")+part("minute")+part("second");
 }
-export function buildVnpayCheckoutUrl(input: {attemptId:string;invoiceNumber:string;amountMinor:number;ipAddress:string;now?:Date}) {
+export function buildVnpayCheckoutUrl(input: {attemptId:string;tenantId:string;invoiceNumber:string;amountMinor:number;ipAddress:string;now?:Date}) {
   const endpoint=httpsBase("VNPAY_PAYMENT_URL"), secret=required("VNPAY_HASH_SECRET");
   const amount=input.amountMinor*100;
   if (!Number.isSafeInteger(amount)) throw new Error("VNPay amount too large");
@@ -39,7 +40,7 @@ export function buildVnpayCheckoutUrl(input: {attemptId:string;invoiceNumber:str
     vnp_Version:"2.1.0",vnp_Command:"pay",vnp_TmnCode:required("VNPAY_TMN_CODE"),
     vnp_Amount:String(amount),vnp_CurrCode:"VND",vnp_TxnRef:input.attemptId,
     vnp_OrderInfo:("FunLink invoice "+input.invoiceNumber).slice(0,255),vnp_OrderType:"other",
-    vnp_Locale:"vn",vnp_ReturnUrl:required("PAYMENT_RETURN_URL"),vnp_IpAddr:input.ipAddress.slice(0,45),
+    vnp_Locale:"vn",vnp_ReturnUrl:returnUrls(input.attemptId,input.tenantId).ret,vnp_IpAddr:input.ipAddress.slice(0,45),
     vnp_CreateDate:vnpayDate(now),vnp_ExpireDate:vnpayDate(expiry)
   };
   const canonical=Object.keys(p).sort().map(k=>enc(k)+"="+enc(p[k]??"")).join("&");
@@ -58,8 +59,8 @@ async function paypalToken() {
   if(!data.access_token) throw new Error("PayPal OAuth response invalid");
   return {base,token:data.access_token};
 }
-async function createPaypal(input:{attemptId:string;invoiceId:string;invoiceNumber:string;amountMinor:number;currency:string}) {
-  const {base,token}=await paypalToken(), urls=returnUrls(input.attemptId);
+async function createPaypal(input:{attemptId:string;tenantId:string;invoiceId:string;invoiceNumber:string;amountMinor:number;currency:string}) {
+  const {base,token}=await paypalToken(), urls=returnUrls(input.attemptId,input.tenantId);
   const response=await fetch(new URL("/v2/checkout/orders",base),{
     method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json","PayPal-Request-Id":input.attemptId},
     body:JSON.stringify({intent:"CAPTURE",purchase_units:[{reference_id:input.invoiceId,custom_id:input.attemptId,invoice_id:input.invoiceNumber.slice(0,127),amount:{currency_code:input.currency,value:formatMinorAmount(input.amountMinor,input.currency)}}],payment_source:{paypal:{experience_context:{return_url:urls.ret,cancel_url:urls.cancel,user_action:"PAY_NOW",shipping_preference:"NO_SHIPPING"}}}}),
@@ -76,8 +77,8 @@ async function createPaypal(input:{attemptId:string;invoiceId:string;invoiceNumb
 export function signBinancePayRequest(body:string,timestamp:string,nonce:string,privateKey:string) {
   return createHmac("sha512",privateKey).update(timestamp+"\n"+nonce+"\n"+body+"\n").digest("hex").toUpperCase();
 }
-async function createBinance(input:{attemptId:string;invoiceNumber:string;amountMinor:number;currency:string}) {
-  const base=httpsBase("BINANCE_PAY_API_BASE_URL"),urls=returnUrls(input.attemptId);
+async function createBinance(input:{attemptId:string;tenantId:string;invoiceNumber:string;amountMinor:number;currency:string}) {
+  const base=httpsBase("BINANCE_PAY_API_BASE_URL"),urls=returnUrls(input.attemptId,input.tenantId);
   const timestamp=Date.now().toString(),nonce=randomBytes(16).toString("hex");
   const body=JSON.stringify({
     env:{terminalType:"WEB"},merchantTradeNo:input.attemptId,
@@ -159,9 +160,9 @@ export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
     const attempt=await db.paymentAttempt.create({data:{tenantId:p.data.tenantId,invoiceId:invoice.id,provider,idempotencyKey:key,amountMinor:invoice.amountMinor,currency:invoice.currency},select:{id:true}});
     try {
       let result:{id:string;url:string};
-      if(provider==="vnpay")result={id:attempt.id,url:buildVnpayCheckoutUrl({attemptId:attempt.id,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,ipAddress:req.ip})};
-      else if(provider==="paypal")result=await createPaypal({attemptId:attempt.id,invoiceId:invoice.id,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,currency:invoice.currency});
-      else result=await createBinance({attemptId:attempt.id,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,currency:invoice.currency});
+      if(provider==="vnpay")result={id:attempt.id,url:buildVnpayCheckoutUrl({attemptId:attempt.id,tenantId:p.data.tenantId,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,ipAddress:req.ip})};
+      else if(provider==="paypal")result=await createPaypal({attemptId:attempt.id,tenantId:p.data.tenantId,invoiceId:invoice.id,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,currency:invoice.currency});
+      else result=await createBinance({attemptId:attempt.id,tenantId:p.data.tenantId,invoiceNumber:invoice.number,amountMinor:invoice.amountMinor,currency:invoice.currency});
       await db.paymentAttempt.updateMany({where:{id:attempt.id,tenantId:p.data.tenantId},data:{providerCheckoutId:result.id,providerCheckoutUrl:result.url}});
       return reply.code(201).send({paymentAttemptId:attempt.id,provider,checkoutUrl:result.url,reused:false});
     } catch(error) {
