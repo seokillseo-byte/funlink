@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHmac, generateKeyPairSync, sign as cryptoSign } from "node:crypto";
 import Fastify from "fastify";
 import type { PrismaClient } from "@prisma/client";
-import { nativePaymentWebhookRoutes } from "./payment-provider-routes.js";
+import { nativePaymentWebhookRoutes } from "./payment-provider-routes.js";\nimport { binanceCertificateSerial } from "./payment-providers.js";
 
 const secret = "vnpay-route-test-secret";
 function signVnpay(params: Record<string, string>) {
@@ -90,4 +90,56 @@ test("PayPal and Binance Pay fail closed when merchant configuration is absent",
   assert.equal(paypal.statusCode, 503);
   assert.equal(binance.statusCode, 503);
   await app.close();
+});
+
+test("Binance Pay valid signed callback updates payment and invoice atomically", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
+  const serial = binanceCertificateSerial(publicKeyPem);
+  process.env.BINANCE_PAY_PUBLIC_KEY = publicKeyPem;
+  process.env.BINANCE_PAY_CERTIFICATE_SN = serial;
+  let paymentStatus = "";
+  let invoiceStatus = "";
+  const tx = {
+    webhookEvent: { create: async () => ({ id: "binance-event" }), update: async () => ({}) },
+    paymentAttempt: {
+      findFirst: async () => ({
+        id: "attempt-binance", invoiceId: "invoice-binance", provider: "binancepay",
+        status: "PENDING", amountMinor: 1000, currency: "USDT",
+        invoice: { id: "invoice-binance", status: "OPEN" }
+      }),
+      update: async ({ data }: any) => { paymentStatus = data.status; return {}; }
+    },
+    invoice: { update: async ({ data }: any) => { invoiceStatus = data.status; return {}; } }
+  };
+  const db = { $transaction: async (callback: (value: any) => Promise<any>) => callback(tx) };
+  const app = Fastify({ logger: false });
+  nativePaymentWebhookRoutes(app, db as unknown as PrismaClient);
+  await app.ready();
+  const timestamp = Date.now().toString();
+  const nonce = "0123456789abcdefghijklmnopqrstuv";
+  const rawBody = Buffer.from(JSON.stringify({
+    bizType: "PAY", bizId: 123456789, bizStatus: "PAY_SUCCESS",
+    data: JSON.stringify({ merchantTradeNo: "attempt-binance", totalFee: "10.00000000", currency: "USDT" })
+  }));
+  const signedPayload = Buffer.concat([Buffer.from(timestamp + "\\n" + nonce + "\\n"), rawBody, Buffer.from("\\n")]);
+  const signature = cryptoSign("RSA-SHA256", signedPayload, privateKey).toString("base64");
+  const response = await app.inject({
+    method: "POST", url: "/v1/webhooks/binance-pay",
+    headers: {
+      "content-type": "application/json",
+      "binancepay-timestamp": timestamp,
+      "binancepay-nonce": nonce,
+      "binancepay-certificate-sn": serial,
+      "binancepay-signature": signature
+    },
+    payload: rawBody
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().returnCode, "SUCCESS");
+  assert.equal(paymentStatus, "SUCCEEDED");
+  assert.equal(invoiceStatus, "PAID");
+  await app.close();
+  delete process.env.BINANCE_PAY_PUBLIC_KEY;
+  delete process.env.BINANCE_PAY_CERTIFICATE_SN;
 });
