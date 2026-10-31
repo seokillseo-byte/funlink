@@ -112,6 +112,33 @@ function currencyAllowed(provider:Provider,currency:string) {
   return currency === "USDT";
 }
 export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
+  app.get("/v1/workspaces/:tenantId/invoices",async(req,reply)=>{
+    const p=z.object({tenantId:z.string().min(1).max(64)}).safeParse(req.params);
+    if(!p.success)return reply.code(400).send({error:"Invalid workspace"});
+    const a=await access(req,db,p.data.tenantId);
+    if(!a)return reply.code(401).send({error:"Authentication required"});
+    const invoices=await db.invoice.findMany({
+      where:{tenantId:p.data.tenantId},
+      orderBy:{createdAt:"desc"},
+      take:50,
+      select:{id:true,number:true,status:true,amountMinor:true,currency:true,dueAt:true,paidAt:true,createdAt:true,payments:{orderBy:{createdAt:"desc"},take:3,select:{id:true,provider:true,status:true,providerCheckoutUrl:true,createdAt:true,paidAt:true}}}
+    });
+    return {invoices};
+  });
+
+  app.get("/v1/workspaces/:tenantId/payment-attempts/:attemptId",async(req,reply)=>{
+    const p=z.object({tenantId:z.string().min(1).max(64),attemptId:z.string().min(1).max(64)}).safeParse(req.params);
+    if(!p.success)return reply.code(400).send({error:"Invalid payment attempt"});
+    const a=await access(req,db,p.data.tenantId);
+    if(!a)return reply.code(401).send({error:"Authentication required"});
+    const attempt=await db.paymentAttempt.findFirst({
+      where:{id:p.data.attemptId,tenantId:p.data.tenantId},
+      select:{id:true,provider:true,status:true,amountMinor:true,currency:true,createdAt:true,paidAt:true,invoice:{select:{id:true,number:true,status:true}}}
+    });
+    if(!attempt)return reply.code(404).send({error:"Payment attempt not found"});
+    return {paymentAttempt:attempt};
+  });
+
   app.post("/v1/workspaces/:tenantId/invoices/:invoiceId/checkout",async(req,reply)=>{
     const p=z.object({tenantId:z.string().min(1).max(64),invoiceId:z.string().min(1).max(64)}).safeParse(req.params);
     const b=z.object({provider:z.enum(["vnpay","paypal","binancepay"])}).safeParse(req.body);
@@ -148,8 +175,11 @@ export function paymentCheckoutRoutes(app:FastifyInstance,db:PrismaClient) {
     const p=z.object({tenantId:z.string().min(1).max(64),attemptId:z.string().min(1).max(64)}).safeParse(req.params);
     if(!p.success)return reply.code(400).send({error:"Invalid payment attempt"});
     const a=await access(req,db,p.data.tenantId);if(!a)return reply.code(401).send({error:"Authentication required"});if(a.denied)return reply.code(403).send({error:"Workspace billing access required"});
+    const body=z.object({orderId:z.string().min(1).max(128)}).safeParse(req.body);
+    if(!body.success)return reply.code(400).send({error:"PayPal order ID is required"});
     const attempt=await db.paymentAttempt.findFirst({where:{id:p.data.attemptId,tenantId:p.data.tenantId,provider:"paypal",status:"PENDING",providerCheckoutId:{not:null}},select:{id:true,providerCheckoutId:true}});
     if(!attempt?.providerCheckoutId)return reply.code(404).send({error:"Pending PayPal payment attempt not found"});
+    if(attempt.providerCheckoutId!==body.data.orderId)return reply.code(409).send({error:"PayPal order does not match this payment attempt"});
     try{
       const {base,token}=await paypalToken();
       const response=await fetch(new URL("/v2/checkout/orders/"+encodeURIComponent(attempt.providerCheckoutId)+"/capture",base),{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json","PayPal-Request-Id":attempt.id+"-capture"},body:"{}",signal:AbortSignal.timeout(12_000),redirect:"error"});
