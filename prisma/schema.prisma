@@ -192,6 +192,7 @@ model Domain {
   slugMappings LinkDomainSlug[]
   @@unique([tenantId,id])
   @@index([tenantId,status])
+  @@index([tenantId,status,verificationExpiresAt])
 }
 model LinkDomainSlug {
   id String @id @default(cuid())
