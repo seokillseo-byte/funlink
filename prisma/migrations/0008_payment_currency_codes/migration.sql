@@ -1,0 +1,2 @@
+ALTER TABLE "Invoice" ALTER COLUMN "currency" TYPE VARCHAR(4);
+ALTER TABLE "PaymentAttempt" ALTER COLUMN "currency" TYPE VARCHAR(4);
