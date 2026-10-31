@@ -1,0 +1,45 @@
+name: API foundation
+
+on:
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/api-foundation.yml"
+  push:
+    branches:
+      - "backend/**"
+      - "architecture/**"
+    paths:
+      - "apps/api/**"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/api-foundation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Generate Prisma Client
+        run: pnpm db:generate
+      - name: Typecheck API
+        run: pnpm --filter @funlink/api typecheck
+      - name: Build API
+        run: pnpm --filter @funlink/api build
+      - name: Test API
+        run: pnpm --filter @funlink/api test
