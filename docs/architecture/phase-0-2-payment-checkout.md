@@ -48,7 +48,7 @@ Use provider sandbox/test credentials and sandbox API endpoints for test environ
 - VNPay is VND-only. The VNPAY request amount is the invoice's VND amount multiplied by 100, and the request is signed with HMAC-SHA512.
 - PayPal uses Orders v2 with CAPTURE intent and a server-side OAuth token. VND is rejected because PayPal does not support it as a checkout currency.
 - Binance Pay request signing uses HMAC-SHA512 over timestamp + LF + nonce + LF + exact JSON body + LF; send the uppercase hexadecimal signature in BinancePay-Signature.
-- The current schema stores integer minor units. VNPay supports VND, PayPal supports non-VND three-letter currencies accepted by PayPal, and Binance Pay checkout is conservatively allowlisted to USDT only. Amounts are formatted to zero or two decimals and are never rounded. Do not enable currencies requiring more than two fractional digits (for example BTC/ETH/BNB) until the money model is migrated to explicit decimal precision.
+- The current schema stores integer minor units. VNPay supports VND, PayPal checkout is allowlisted to USD, EUR, GBP, CAD and AUD, and Binance Pay checkout is conservatively allowlisted to USDT only. Amounts are formatted to zero or two decimals and are never rounded. Do not enable currencies requiring more than two fractional digits (for example BTC/ETH/BNB) until the money model is migrated to explicit decimal precision.
 - Checkout URL and provider checkout ID are persisted separately from the final provider payment/transaction ID.
 - Provider API failure marks the local attempt FAILED. A created provider order may remain unpaid until its provider expiry.
 
