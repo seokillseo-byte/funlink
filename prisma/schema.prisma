@@ -178,7 +178,9 @@ model Domain {
   id String @id @default(cuid())
   tenantId String
   hostname String @unique
-  verificationTokenHash String @unique
+  verificationTokenHash String? @unique
+  verificationExpiresAt DateTime?
+  verificationAttempts Int @default(0)
   status DomainStatus @default(PENDING_VERIFICATION)
   tlsStatus TlsStatus @default(NOT_CONFIGURED)
   verifiedAt DateTime?
@@ -190,6 +192,7 @@ model Domain {
   slugMappings LinkDomainSlug[]
   @@unique([tenantId,id])
   @@index([tenantId,status])
+  @@index([tenantId,status,verificationExpiresAt])
 }
 model LinkDomainSlug {
   id String @id @default(cuid())
