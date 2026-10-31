@@ -228,7 +228,7 @@ model Plan {
   code String @unique
   name String
   priceMinor Int
-  currency String @default("VND") @db.VarChar(3)
+  currency String @default("VND") @db.VarChar(4)
   interval PlanInterval @default(MONTH)
   entitlements Json
   active Boolean @default(true)
