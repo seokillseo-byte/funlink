@@ -5,6 +5,7 @@ import { domainToASCII } from "node:url";
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { getPlanContext } from "./billing.js";
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_VERIFICATION_ATTEMPTS = 5;
@@ -83,6 +84,12 @@ export function domainRoutes(app: FastifyInstance, db: PrismaClient, lookupTxt: 
     if (access.role !== "OWNER" && access.role !== "ADMIN") return reply.code(403).send({ error: "Workspace administrator required" });
     const hostname = normalizeDomainHostname(body.data.hostname);
     if (!hostname) return reply.code(400).send({ error: "Enter a valid public domain hostname" });
+    const planContext = await getPlanContext(db, params.data.tenantId);
+    const domainLimit = planContext.plan.entitlements.customDomains;
+    const domainCount = await db.domain.count({ where: { tenantId: params.data.tenantId } });
+    if (domainCount >= domainLimit) {
+      return reply.code(403).send({ error: domainLimit === 0 ? "Custom domains are not included in your current plan." : "Custom domain limit reached. Upgrade your FunLink plan to add another domain.", code: "DOMAIN_QUOTA_EXCEEDED", usage: { used: domainCount, limit: domainLimit } });
+    }
 
     const rawToken = createDomainVerificationToken();
     const now = new Date();
