@@ -10,7 +10,7 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/phase-1-0-saas.yml"
   push:
-    branches: ["saas/**"]
+    branches: ["saas/**", "release/**"]
     paths:
       - "apps/api/**"
       - "apps/web/**"
