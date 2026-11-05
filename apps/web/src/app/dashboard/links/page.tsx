@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import DashboardSidebar from "../../../components/dashboard-sidebar";
 import {useCallback, useEffect, useMemo, useState} from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3013";
@@ -179,11 +180,7 @@ export default function LinksPage() {
 
   return (
     <main className="accountPage">
-      <header className="accountNav">
-        <Link className="brand" href="/"><span className="brandmark">F</span> FunLink</Link>
-        <nav><Link href="/dashboard">Tổng quan</Link><Link href="/dashboard/links">Liên kết</Link><Link href="/dashboard/domains">Tên miền</Link><Link href="/profile">Profile</Link></nav>
-        <Link href="/dashboard">Quay lại dashboard</Link>
-      </header>
+      <DashboardSidebar />
       <section className="accountContent">
         <span className="pill">LINK MANAGEMENT</span>
         <h1>Quản lý liên kết</h1>
