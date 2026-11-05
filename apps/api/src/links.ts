@@ -213,14 +213,37 @@ export function linkRoutes(app: FastifyInstance, db: PrismaClient) {
   app.get("/v1/redirect/:slug", async (req, reply) => {
     const params = z.object({slug: slugSchema}).safeParse(req.params);
     if (!params.success) return reply.code(404).send({error: "Link not found"});
-    const link = await db.link.findFirst({
-      where: {
-        slug: params.data.slug,
-        status: "ACTIVE",
-        OR: [{expiresAt: null}, {expiresAt: {gt: new Date()}}]
-      },
-      select: {id: true, tenantId: true, targetUrl: true, redirectCode: true}
-    });
+    const forwardedHost = req.headers["x-forwarded-host"] ?? req.headers.host ?? "";
+    const hostname = String(forwardedHost).split(",")[0].trim().replace(/:\\d+$/, "").toLowerCase();
+    const domain = hostname
+      ? await db.domain.findFirst({where: {hostname}, select: {id: true, status: true, tlsStatus: true}})
+      : null;
+
+    let link: {id: string; tenantId: string; targetUrl: string; redirectCode: number} | null = null;
+    if (domain) {
+      if (domain.status !== "ACTIVE" || domain.tlsStatus !== "ACTIVE") {
+        return reply.code(404).send({error: "Link not found or domain is not active"});
+      }
+      const mapping = await db.linkDomainSlug.findFirst({
+        where: {domainId: domain.id, slug: params.data.slug},
+        select: {
+          link: {select: {id: true, tenantId: true, targetUrl: true, redirectCode: true, status: true, expiresAt: true}}
+        }
+      });
+      const mappedLink = mapping?.link;
+      if (mappedLink && mappedLink.status === "ACTIVE" && (!mappedLink.expiresAt || mappedLink.expiresAt > new Date())) {
+        link = {id: mappedLink.id, tenantId: mappedLink.tenantId, targetUrl: mappedLink.targetUrl, redirectCode: mappedLink.redirectCode};
+      }
+    } else {
+      link = await db.link.findFirst({
+        where: {
+          slug: params.data.slug,
+          status: "ACTIVE",
+          OR: [{expiresAt: null}, {expiresAt: {gt: new Date()}}]
+        },
+        select: {id: true, tenantId: true, targetUrl: true, redirectCode: true}
+      });
+    }
     if (!link) return reply.code(404).send({error: "Link not found or expired"});
 
     const referer = req.headers.referer;
