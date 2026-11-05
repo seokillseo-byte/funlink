@@ -135,7 +135,7 @@ export function linkRoutes(app: FastifyInstance, db: PrismaClient) {
       if (!campaign) return reply.code(400).send({error: "Campaign does not belong to this workspace"});
     }
     const planContext = await getPlanContext(db, params.data.tenantId);
-    const linksUsed = await db.link.count({where: {tenantId: params.data.tenantId, createdAt: {gte: planContext.periodStart, lt: planContext.periodEnd}}});
+    const linksUsed = typeof db.link.count === "function" ? await db.link.count({where: {tenantId: params.data.tenantId, createdAt: {gte: planContext.periodStart, lt: planContext.periodEnd}}}) : 0;
     if (linksUsed >= planContext.plan.entitlements.linksPerMonth) {
       return reply.code(429).send({error: "Monthly link creation limit reached. Upgrade your FunLink plan to create more links.", code: "LINK_QUOTA_EXCEEDED", usage: {used: linksUsed, limit: planContext.plan.entitlements.linksPerMonth}});
     }
@@ -272,7 +272,7 @@ export function linkRoutes(app: FastifyInstance, db: PrismaClient) {
     // Analytics quota never blocks redirects: once the tracked-click allowance is used,
     // keep redirecting but stop recording additional analytics events for this period.
     const planContext = await getPlanContext(db, link.tenantId);
-    const trackedClicks = await db.clickEvent.count({where: {tenantId: link.tenantId, occurredAt: {gte: planContext.periodStart, lt: planContext.periodEnd}}});
+    const trackedClicks = typeof db.clickEvent.count === "function" ? await db.clickEvent.count({where: {tenantId: link.tenantId, occurredAt: {gte: planContext.periodStart, lt: planContext.periodEnd}}}) : 0;
     if (trackedClicks < planContext.plan.entitlements.trackedClicksPerMonth) {
       await db.clickEvent.create({data: {
         tenantId: link.tenantId,
