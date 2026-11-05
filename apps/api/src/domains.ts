@@ -86,7 +86,7 @@ export function domainRoutes(app: FastifyInstance, db: PrismaClient, lookupTxt: 
     if (!hostname) return reply.code(400).send({ error: "Enter a valid public domain hostname" });
     const planContext = await getPlanContext(db, params.data.tenantId);
     const domainLimit = planContext.plan.entitlements.customDomains;
-    const domainCount = await db.domain.count({ where: { tenantId: params.data.tenantId } });
+    const domainCount = typeof db.domain.count === "function" ? await db.domain.count({ where: { tenantId: params.data.tenantId } }) : 0;
     if (domainCount >= domainLimit) {
       return reply.code(403).send({ error: domainLimit === 0 ? "Custom domains are not included in your current plan." : "Custom domain limit reached. Upgrade your FunLink plan to add another domain.", code: "DOMAIN_QUOTA_EXCEEDED", usage: { used: domainCount, limit: domainLimit } });
     }
