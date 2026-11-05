@@ -1,6 +1,7 @@
 import { Transform } from "node:stream";
 import type { FastifyInstance } from "fastify";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { activateSubscriptionForInvoice } from "./billing.js";
 import {
   verifyBinancePayWebhook,
   verifyPayPalWebhook,
