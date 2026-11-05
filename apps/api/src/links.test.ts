@@ -141,3 +141,84 @@ test("public redirect returns 404 for an unknown or invalid slug", async () => {
   assert.equal(invalid.statusCode, 404);
   await app.close();
 });
+
+
+test("workspace link update can pause a link and writes an audit event", async () => {
+  let updateArgs: any;
+  let audit: any;
+  const prisma = {
+    session: {findUnique: async () => authenticatedSession("MEMBER")},
+    link: {
+      updateMany: async (args: any) => { updateArgs = args; return {count: 1}; },
+      findFirst: async () => ({id: "link-1", slug: "campaign-2026", targetUrl: "https://example.com", title: "Campaign", status: "PAUSED", redirectCode: 302, expiresAt: null, updatedAt: new Date()})
+    },
+    auditLog: {create: async ({data}: any) => {audit = data;}}
+  } as unknown as PrismaClient;
+  const app = buildApp({config, logger: false, prisma});
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/v1/workspaces/tenant-1/links/link-1",
+    headers: {cookie},
+    payload: {status: "PAUSED"}
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().link.status, "PAUSED");
+  assert.deepEqual(updateArgs.where, {id: "link-1", tenantId: "tenant-1"});
+  assert.equal(updateArgs.data.status, "PAUSED");
+  assert.equal(audit.action, "link.updated");
+  await app.close();
+});
+
+test("workspace viewer cannot modify a short link", async () => {
+  let modified = false;
+  const prisma = {
+    session: {findUnique: async () => authenticatedSession("VIEWER")},
+    link: {updateMany: async () => {modified = true; return {count: 1};}}
+  } as unknown as PrismaClient;
+  const app = buildApp({config, logger: false, prisma});
+  const response = await app.inject({
+    method: "PATCH",
+    url: "/v1/workspaces/tenant-1/links/link-1",
+    headers: {cookie},
+    payload: {status: "PAUSED"}
+  });
+  assert.equal(response.statusCode, 403);
+  assert.equal(modified, false);
+  await app.close();
+});
+
+test("workspace link archive is tenant scoped and records an audit event", async () => {
+  let updateArgs: any;
+  let audit: any;
+  const prisma = {
+    session: {findUnique: async () => authenticatedSession("OWNER")},
+    link: {updateMany: async (args: any) => {updateArgs = args; return {count: 1};}},
+    auditLog: {create: async ({data}: any) => {audit = data;}}
+  } as unknown as PrismaClient;
+  const app = buildApp({config, logger: false, prisma});
+  const response = await app.inject({
+    method: "DELETE",
+    url: "/v1/workspaces/tenant-1/links/link-1",
+    headers: {cookie}
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().status, "ARCHIVED");
+  assert.equal(updateArgs.where.tenantId, "tenant-1");
+  assert.equal(updateArgs.data.status, "ARCHIVED");
+  assert.equal(audit.action, "link.archived");
+  await app.close();
+});
+
+test("public redirect does not resolve a paused or expired link", async () => {
+  let clicked = false;
+  const prisma = {
+    domain: {findFirst: async () => null},
+    link: {findFirst: async () => null},
+    clickEvent: {create: async () => {clicked = true;}}
+  } as unknown as PrismaClient;
+  const app = buildApp({config, logger: false, prisma});
+  const response = await app.inject({method: "GET", url: "/v1/redirect/paused-or-expired"});
+  assert.equal(response.statusCode, 404);
+  assert.equal(clicked, false);
+  await app.close();
+});
