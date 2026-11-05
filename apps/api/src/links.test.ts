@@ -78,6 +78,7 @@ test("workspace link creation rejects non-HTTP target URLs", async () => {
 test("public redirect records a click and redirects to the stored destination", async () => {
   let click: any;
   const prisma = {
+    domain: {findFirst: async () => null},
     link: {findFirst: async () => ({
       id: "link-1", tenantId: "tenant-1", targetUrl: "https://example.com/landing", redirectCode: 302
     })},
@@ -98,7 +99,7 @@ test("public redirect records a click and redirects to the stored destination", 
 });
 
 test("public redirect returns 404 for an unknown or invalid slug", async () => {
-  const prisma = {link: {findFirst: async () => null}} as unknown as PrismaClient;
+  const prisma = {domain: {findFirst: async () => null}, link: {findFirst: async () => null}} as unknown as PrismaClient;
   const app = buildApp({config, logger: false, prisma});
   const missing = await app.inject({method: "GET", url: "/v1/redirect/not-found"});
   const invalid = await app.inject({method: "GET", url: "/v1/redirect/%3Cscript%3E"});
