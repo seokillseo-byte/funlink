@@ -102,6 +102,9 @@ async function processVerifiedPayment(db: PrismaClient, input: {
         data: { status: "PAID", paidAt: now }
       });
       if (invoiceUpdate.count !== 1) throw new Error("Invoice state changed during payment webhook transaction");
+      if (payment.invoice.subscriptionId) {
+        await activateSubscriptionForInvoice(tx, { tenantId: payment.tenantId, subscriptionId: payment.invoice.subscriptionId }, now);
+      }
     }
     await tx.webhookEvent.update({
       where: { id: event.id },
