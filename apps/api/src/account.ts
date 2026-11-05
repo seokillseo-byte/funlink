@@ -2,6 +2,7 @@ import {createHash,randomBytes} from "node:crypto";
 import type {FastifyInstance} from "fastify";
 import {Prisma,type PrismaClient} from "@prisma/client";
 import {z} from "zod";
+import {getPlanContext} from "./billing.js";
 const sha=(s:string)=>createHash("sha256").update(s).digest("hex");
 const escapeHtml=(value:string)=>value.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\"","&quot;").replaceAll("'","&#39;");
 async function currentUser(req:any,db:PrismaClient){const token=req.cookies?.funlink_session;if(!token)return null;const s=await db.session.findUnique({where:{tokenHash:sha(token)},include:{user:true}});if(!s||s.revokedAt||s.expiresAt<=new Date()||s.user.status!=="ACTIVE"||!s.user.emailVerifiedAt)return null;return s.user;}
@@ -92,6 +93,12 @@ export function accountRoutes(app:FastifyInstance,db:PrismaClient){
   const parsed=z.object({email:z.string().email().max(254).transform(v=>v.toLowerCase()),role:z.enum(["MEMBER","BILLING","VIEWER"]).default("MEMBER")}).safeParse(req.body);
   if(!parsed.success)return reply.code(400).send({error:"Invalid invitation details"});
   const {email,role}=parsed.data;
+  const planContext=await getPlanContext(db,tenantId);
+  const [memberCount,pendingCount]=await Promise.all([
+   db.tenantMember.count({where:{tenantId}}),
+   db.workspaceInvitation.count({where:{tenantId,acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}}})
+  ]);
+  if(memberCount+pendingCount>=planContext.plan.entitlements.seats)return reply.code(409).send({error:"Workspace seat limit reached. Upgrade your FunLink plan to invite more members.",code:"SEAT_QUOTA_EXCEEDED",usage:{used:memberCount+pendingCount,limit:planContext.plan.entitlements.seats}});
   const existing=await db.user.findUnique({where:{email},select:{id:true,memberships:{where:{tenantId},select:{id:true}}}});
   if(existing?.memberships.length)return reply.code(409).send({error:"This user is already a workspace member"});
   const pending=await db.workspaceInvitation.findFirst({where:{tenantId,email,acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}},select:{id:true}});
