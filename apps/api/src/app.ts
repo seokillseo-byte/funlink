@@ -9,6 +9,7 @@ import {domainRoutes} from "./domains.js";
 import {webhookRoutes} from "./webhooks.js";
 import {nativePaymentWebhookRoutes} from "./payment-provider-routes.js";
 import {paymentCheckoutRoutes} from "./payment-checkout.js";
+import {linkRoutes} from "./links.js";
 
 export interface ReadinessDatabase {$queryRaw<T = unknown>(query: TemplateStringsArray): Promise<T>;}
 export interface BuildAppOptions {config:ApiConfig;prisma?:ReadinessDatabase;logger?:boolean;}
@@ -38,6 +39,7 @@ export function buildApp(options:BuildAppOptions):FastifyInstance {
   webhookRoutes(app,db);
   nativePaymentWebhookRoutes(app,db);
   paymentCheckoutRoutes(app,db);
+  linkRoutes(app,db);
  }
  app.setErrorHandler((error:unknown,_q,r)=>{
   app.log.error({err:error},"Unhandled API error");
