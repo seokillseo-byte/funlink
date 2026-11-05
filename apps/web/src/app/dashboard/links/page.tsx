@@ -181,7 +181,7 @@ export default function LinksPage() {
     <main className="accountPage">
       <header className="accountNav">
         <Link className="brand" href="/"><span className="brandmark">F</span> FunLink</Link>
-        <nav><Link href="/dashboard">Tổng quan</Link><Link href="/dashboard/links">Liên kết</Link><Link href="/profile">Profile</Link></nav>
+        <nav><Link href="/dashboard">Tổng quan</Link><Link href="/dashboard/links">Liên kết</Link><Link href="/dashboard/domains">Tên miền</Link><Link href="/profile">Profile</Link></nav>
         <Link href="/dashboard">Quay lại dashboard</Link>
       </header>
       <section className="accountContent">
