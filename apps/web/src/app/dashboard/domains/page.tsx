@@ -101,6 +101,22 @@ export default function DomainsPage() {
     finally {setBusy(false);}
   }
 
+  async function rotateToken(domain: Domain) {
+    if (!workspaceId) return;
+    setBusy(true); setError(""); setNotice(""); setDnsRecord(null);
+    try {
+      const response = await fetch(API + "/v1/workspaces/" + encodeURIComponent(workspaceId) + "/domains/" + encodeURIComponent(domain.id) + "/verification/rotate", {
+        method: "POST", credentials: "include"
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Không thể tạo lại mã xác minh.");
+      setDnsRecord(data.dnsRecord);
+      setNotice("Đã tạo token TXT mới. Token cũ không còn hiệu lực.");
+      await load(workspaceId);
+    } catch (reason) {setError(reason instanceof Error ? reason.message : "Không thể tạo lại mã xác minh.");}
+    finally {setBusy(false);}
+  }
+
   async function addMapping(event: React.FormEvent) {
     event.preventDefault();
     if (!workspaceId || !selectedDomain || !selectedLink) return;
@@ -167,7 +183,7 @@ export default function DomainsPage() {
           {domains.map(domain => <article key={domain.id} style={{border: "1px solid #e8edf5", borderRadius: 12, padding: 16}}>
             <div style={{display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap"}}>
               <div><strong>{domain.hostname}</strong><p style={{margin: "6px 0", color: "#667085"}}>DNS: {domain.status} · TLS: {domain.tlsStatus}</p></div>
-              {domain.status === "PENDING_VERIFICATION" && <button type="button" disabled={busy || !["OWNER", "ADMIN"].includes(workspace?.role ?? "")} style={button} onClick={() => verifyDomain(domain)}>Kiểm tra TXT DNS</button>}
+              {domain.status === "PENDING_VERIFICATION" && <button type="button" disabled={busy || !["OWNER", "ADMIN"].includes(workspace?.role ?? "")} style={button} onClick={() => verifyDomain(domain)}>Kiểm tra TXT DNS</button>}{domain.status === "FAILED" && <button type="button" disabled={busy || !["OWNER", "ADMIN"].includes(workspace?.role ?? "")} style={button} onClick={() => rotateToken(domain)}>Tạo lại mã TXT</button>}
             </div>
             {domain.status === "VERIFIED" && domain.tlsStatus !== "ACTIVE" && <p style={{color: "#b54708", fontSize: 13}}>Đã xác minh DNS. Tên miền chưa chuyển hướng công khai cho đến khi cấu hình routing và TLS được kích hoạt trên máy chủ.</p>}
             {domain.slugMappings?.length ? <div style={{display: "grid", gap: 8, marginTop: 12}}>{domain.slugMappings.map(mapping => <div key={mapping.id} style={{display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", borderTop: "1px solid #edf0f5", paddingTop: 9, flexWrap: "wrap"}}>
