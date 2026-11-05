@@ -189,12 +189,8 @@ export default function DomainsPage() {
             {links.filter(item => item.status === "ACTIVE").map(item => <option key={item.id} value={item.id}>{item.title || item.slug}</option>)}
           </select></label>
           <label>Slug trên tên miền<input required minLength={3} maxLength={64} value={mappingSlug} onChange={event => setMappingSlug(event.target.value.toLowerCase())} placeholder="brand-campaign" style={{...field, marginTop: 7}} /></label>
+          <button type="submit" disabled={busy || !selectedDomain || !selectedLink || !mappingSlug.trim() || !["OWNER", "ADMIN"].includes(workspace?.role ?? "")} style={{...button, marginTop: 4, background: "#155eef", color: "#fff", borderColor: "#155eef"}}>Tạo mapping</button>
         </form>
-        <button type="button" disabled={busy || !selectedDomain || !selectedLink || !mappingSlug.trim() || !["OWNER", "ADMIN"].includes(workspace?.role ?? "")} style={{...button, marginTop: 14, background: "#155eef", color: "#fff", borderColor: "#155eef"}} onClick={() => {
-          if (!workspaceId || !selectedDomain || !selectedLink) return;
-          const form = document.querySelector("form[data-domain-mapping]");
-          if (form instanceof HTMLFormElement) form.requestSubmit();
-        }}>Tạo mapping</button>
         <p style={{fontSize: 13, color: "#667085"}}>Lưu ý: mapping chỉ được lưu ở ứng dụng. Máy chủ vẫn cần cấu hình DNS, reverse proxy và chứng chỉ TLS trước khi URL custom domain hoạt động công khai.</p>
       </section>
     </section>
