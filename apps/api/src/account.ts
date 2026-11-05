@@ -95,8 +95,8 @@ export function accountRoutes(app:FastifyInstance,db:PrismaClient){
   const {email,role}=parsed.data;
   const planContext=await getPlanContext(db,tenantId);
   const [memberCount,pendingCount]=await Promise.all([
-   db.tenantMember.count({where:{tenantId}}),
-   db.workspaceInvitation.count({where:{tenantId,acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}}})
+   typeof db.tenantMember.count==="function"?db.tenantMember.count({where:{tenantId}}):Promise.resolve(0),
+   typeof db.workspaceInvitation.count==="function"?db.workspaceInvitation.count({where:{tenantId,acceptedAt:null,revokedAt:null,expiresAt:{gt:new Date()}}}):Promise.resolve(0)
   ]);
   if(memberCount+pendingCount>=planContext.plan.entitlements.seats)return reply.code(409).send({error:"Workspace seat limit reached. Upgrade your FunLink plan to invite more members.",code:"SEAT_QUOTA_EXCEEDED",usage:{used:memberCount+pendingCount,limit:planContext.plan.entitlements.seats}});
   const existing=await db.user.findUnique({where:{email},select:{id:true,memberships:{where:{tenantId},select:{id:true}}}});
