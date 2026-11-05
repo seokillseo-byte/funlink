@@ -62,6 +62,19 @@ test("workspace member can create a validated short link", async () => {
   await app.close();
 });
 
+test("workspace link creation rejects reserved application paths", async () => {
+  const prisma = {session: {findUnique: async () => authenticatedSession()}} as unknown as PrismaClient;
+  const app = buildApp({config, logger: false, prisma});
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/workspaces/tenant-1/links",
+    headers: {cookie},
+    payload: {slug: "dashboard", targetUrl: "https://example.com"}
+  });
+  assert.equal(response.statusCode, 400);
+  await app.close();
+});
+
 test("workspace link creation rejects non-HTTP target URLs", async () => {
   const prisma = {session: {findUnique: async () => authenticatedSession()}} as unknown as PrismaClient;
   const app = buildApp({config, logger: false, prisma});
