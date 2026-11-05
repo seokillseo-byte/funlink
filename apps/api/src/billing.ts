@@ -47,11 +47,11 @@ function monthStart(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 export async function getPlanContext(db: PrismaClient, tenantId: string, now = new Date()) {
-  const subscription = await db.subscription.findFirst({
+  const subscription = typeof db.subscription?.findFirst === "function" ? await db.subscription.findFirst({
     where: { tenantId, status: "ACTIVE", currentPeriodStart: { lte: now }, currentPeriodEnd: { gt: now } },
     include: { plan: true },
     orderBy: { currentPeriodStart: "desc" }
-  });
+  }) : null;
   if (subscription) {
     return {
       plan: { ...subscription.plan, entitlements: readEntitlements(subscription.plan.entitlements) },
@@ -60,7 +60,7 @@ export async function getPlanContext(db: PrismaClient, tenantId: string, now = n
       periodEnd: subscription.currentPeriodEnd ?? addOneMonth(now)
     };
   }
-  const plan = await db.plan.findUnique({ where: { code: "FREE" } });
+  const plan = typeof db.plan?.findUnique === "function" ? await db.plan.findUnique({ where: { code: "FREE" } }) : null;
   return {
     plan: plan
       ? { ...plan, entitlements: readEntitlements(plan.entitlements) }
