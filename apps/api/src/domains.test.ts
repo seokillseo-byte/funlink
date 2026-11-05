@@ -174,3 +174,94 @@ test("expired verification token is rejected without a DNS lookup", async () => 
   assert.equal(lookedUp, false);
   await app.close();
 });
+
+
+test("workspace domain listing includes domain status and slug mappings", async () => {
+  const db = {
+    session: { findUnique: async () => activeSession },
+    domain: { findMany: async () => [{id: "domain-1", hostname: "go.example.com", status: "VERIFIED", tlsStatus: "PENDING", slugMappings: []}] }
+  };
+  const app = await buildDomainTestApp(db);
+  const response = await app.inject({
+    method: "GET",
+    url: "/v1/workspaces/tenant-1/domains",
+    headers: { cookie: sessionCookie }
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().domains[0].hostname, "go.example.com");
+  assert.equal(response.json().domains[0].tlsStatus, "PENDING");
+  await app.close();
+});
+
+test("workspace administrator can map a verified domain slug to a link", async () => {
+  let mappingData: any;
+  let audit: any;
+  const db = {
+    session: { findUnique: async () => activeSession },
+    domain: { findFirst: async () => ({id: "domain-1", hostname: "go.example.com", status: "VERIFIED", tlsStatus: "PENDING"}) },
+    link: { findFirst: async () => ({id: "link-1", slug: "campaign", status: "ACTIVE"}) },
+    linkDomainSlug: {
+      create: async ({data}: any) => {
+        mappingData = data;
+        return {id: "mapping-1", slug: data.slug, domainId: data.domainId, linkId: data.linkId, createdAt: new Date()};
+      }
+    },
+    auditLog: {create: async ({data}: any) => {audit = data;}}
+  };
+  const app = await buildDomainTestApp(db);
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/workspaces/tenant-1/domains/domain-1/slugs",
+    headers: {cookie: sessionCookie, "content-type": "application/json"},
+    payload: {linkId: "link-1", slug: "brand-campaign"}
+  });
+  assert.equal(response.statusCode, 201);
+  assert.equal(mappingData.tenantId, "tenant-1");
+  assert.equal(mappingData.domainId, "domain-1");
+  assert.equal(mappingData.linkId, "link-1");
+  assert.equal(response.json().domain.status, "VERIFIED");
+  assert.match(response.json().notice, /TLS are active/);
+  assert.equal(audit.action, "domain.slug_mapping.created");
+  await app.close();
+});
+
+test("workspace administrator cannot map a link from another workspace", async () => {
+  let created = false;
+  const db = {
+    session: { findUnique: async () => activeSession },
+    domain: { findFirst: async () => ({id: "domain-1", hostname: "go.example.com", status: "VERIFIED", tlsStatus: "PENDING"}) },
+    link: { findFirst: async () => null },
+    linkDomainSlug: {create: async () => {created = true; return {};}}
+  };
+  const app = await buildDomainTestApp(db);
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/workspaces/tenant-1/domains/domain-1/slugs",
+    headers: {cookie: sessionCookie, "content-type": "application/json"},
+    payload: {linkId: "link-from-other-tenant", slug: "brand-campaign"}
+  });
+  assert.equal(response.statusCode, 404);
+  assert.equal(created, false);
+  await app.close();
+});
+
+test("workspace administrator can remove a custom-domain slug mapping", async () => {
+  let deletedWhere: any;
+  let audit: any;
+  const db = {
+    session: { findUnique: async () => activeSession },
+    linkDomainSlug: {deleteMany: async ({where}: any) => {deletedWhere = where; return {count: 1};}},
+    auditLog: {create: async ({data}: any) => {audit = data;}}
+  };
+  const app = await buildDomainTestApp(db);
+  const response = await app.inject({
+    method: "DELETE",
+    url: "/v1/workspaces/tenant-1/domains/domain-1/slugs/mapping-1",
+    headers: {cookie: sessionCookie}
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(deletedWhere.tenantId, "tenant-1");
+  assert.equal(deletedWhere.domainId, "domain-1");
+  assert.equal(audit.action, "domain.slug_mapping.deleted");
+  await app.close();
+});
