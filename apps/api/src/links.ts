@@ -7,7 +7,15 @@ const sha256 = (value: string) => createHash("sha256").update(value, "utf8").dig
 const tenantParams = z.object({tenantId: z.string().min(1).max(64)});
 const linkParams = tenantParams.extend({linkId: z.string().min(1).max(64)});
 const slugPattern = /^[a-z0-9](?:[a-z0-9_-]{1,62}[a-z0-9])?$/;
-const slugSchema = z.string().trim().min(3).max(64).regex(slugPattern, "Slug must use lowercase letters, numbers, hyphens or underscores.");
+const reservedSlugs = new Set([
+  "dashboard", "login", "register", "profile", "admin", "billing", "api", "v1",
+  "_next", "robots.txt", "sitemap.xml", "favicon.ico", "health", "ready",
+  "accept-invitation", "verify-email", "reset-password", "forgot-password",
+  "resend-verification", "r"
+]);
+const slugSchema = z.string().trim().min(3).max(64)
+  .regex(slugPattern, "Slug must use lowercase letters, numbers, hyphens or underscores.")
+  .refine(value => !reservedSlugs.has(value.toLowerCase()), "This slug is reserved by FunLink.");
 
 const targetUrlSchema = z.string().trim().url().max(2048).refine(value => {
   try {
