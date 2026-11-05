@@ -143,6 +143,117 @@ export function domainRoutes(app: FastifyInstance, db: PrismaClient, lookupTxt: 
     };
   });
 
+  app.get("/v1/workspaces/:tenantId/domains", async (req, reply) => {
+    const params = paramsSchema.safeParse(req.params);
+    if (!params.success) return reply.code(400).send({ error: "Invalid workspace reference" });
+    const access = await workspaceAccess(req, db, params.data.tenantId);
+    if (!access) return reply.code(404).send({ error: "Workspace not found" });
+    const domains = await db.domain.findMany({
+      where: { tenantId: params.data.tenantId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true, hostname: true, status: true, tlsStatus: true,
+        verifiedAt: true, routingEnabledAt: true, createdAt: true, updatedAt: true,
+        slugMappings: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true, slug: true, createdAt: true,
+            link: { select: { id: true, slug: true, title: true, status: true, targetUrl: true } }
+          }
+        }
+      }
+    });
+    return { domains };
+  });
+
+  app.post("/v1/workspaces/:tenantId/domains/:domainId/slugs", async (req, reply) => {
+    const params = paramsSchema.safeParse(req.params);
+    const body = z.object({
+      linkId: z.string().min(1).max(64),
+      slug: z.string().trim().min(3).max(64)
+        .regex(/^[a-z0-9](?:[a-z0-9_-]{1,62}[a-z0-9])?$/)
+        .refine(value => !["api", "admin", "dashboard", "login", "register", "robots.txt", "sitemap.xml"].includes(value.toLowerCase()))
+    }).safeParse(req.body);
+    if (!params.success || !params.data.domainId || !body.success) {
+      return reply.code(400).send({ error: "Invalid custom-domain link mapping" });
+    }
+    const access = await workspaceAccess(req, db, params.data.tenantId);
+    if (!access) return reply.code(404).send({ error: "Workspace not found" });
+    if (access.role !== "OWNER" && access.role !== "ADMIN") {
+      return reply.code(403).send({ error: "Workspace administrator required" });
+    }
+    const [domain, link] = await Promise.all([
+      db.domain.findFirst({
+        where: { id: params.data.domainId, tenantId: params.data.tenantId },
+        select: { id: true, hostname: true, status: true, tlsStatus: true }
+      }),
+      db.link.findFirst({
+        where: { id: body.data.linkId, tenantId: params.data.tenantId },
+        select: { id: true, slug: true, status: true }
+      })
+    ]);
+    if (!domain) return reply.code(404).send({ error: "Domain not found" });
+    if (!["VERIFIED", "ROUTING_PENDING", "ACTIVE"].includes(domain.status)) {
+      return reply.code(409).send({ error: "Verify domain ownership before adding link mappings" });
+    }
+    if (!link) return reply.code(404).send({ error: "Link not found in this workspace" });
+    try {
+      const mapping = await db.linkDomainSlug.create({
+        data: {
+          tenantId: params.data.tenantId,
+          domainId: domain.id,
+          linkId: link.id,
+          slug: body.data.slug
+        },
+        select: { id: true, slug: true, domainId: true, linkId: true, createdAt: true }
+      });
+      await db.auditLog.create({ data: {
+        tenantId: params.data.tenantId, actorId: access.userId,
+        action: "domain.slug_mapping.created", entityType: "LinkDomainSlug", entityId: mapping.id,
+        metadata: { hostname: domain.hostname, slug: mapping.slug, linkId: link.id }
+      }});
+      return reply.code(201).send({
+        mapping,
+        domain: { hostname: domain.hostname, status: domain.status, tlsStatus: domain.tlsStatus },
+        notice: domain.status === "ACTIVE" && domain.tlsStatus === "ACTIVE"
+          ? "Mapping is ready for requests routed to this active custom domain."
+          : "Mapping is saved. Public redirects remain unavailable until domain routing and TLS are active."
+      });
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+        return reply.code(409).send({ error: "This slug or link is already mapped on the domain" });
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/v1/workspaces/:tenantId/domains/:domainId/slugs/:mappingId", async (req, reply) => {
+    const params = z.object({
+      tenantId: z.string().min(1).max(64),
+      domainId: z.string().min(1).max(64),
+      mappingId: z.string().min(1).max(64)
+    }).safeParse(req.params);
+    if (!params.success) return reply.code(400).send({ error: "Invalid mapping reference" });
+    const access = await workspaceAccess(req, db, params.data.tenantId);
+    if (!access) return reply.code(404).send({ error: "Workspace not found" });
+    if (access.role !== "OWNER" && access.role !== "ADMIN") {
+      return reply.code(403).send({ error: "Workspace administrator required" });
+    }
+    const result = await db.linkDomainSlug.deleteMany({
+      where: {
+        id: params.data.mappingId,
+        domainId: params.data.domainId,
+        tenantId: params.data.tenantId
+      }
+    });
+    if (result.count !== 1) return reply.code(404).send({ error: "Domain mapping not found" });
+    await db.auditLog.create({ data: {
+      tenantId: params.data.tenantId, actorId: access.userId,
+      action: "domain.slug_mapping.deleted", entityType: "LinkDomainSlug", entityId: params.data.mappingId
+    }});
+    return { ok: true };
+  });
+
   app.post("/v1/workspaces/:tenantId/domains/:domainId/verify", async (req, reply) => {
     const params = paramsSchema.safeParse(req.params);
     if (!params.success || !params.data.domainId) return reply.code(400).send({ error: "Invalid domain reference" });
