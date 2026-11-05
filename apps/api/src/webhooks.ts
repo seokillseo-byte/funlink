@@ -3,6 +3,7 @@ import { Transform } from "node:stream";
 import type { FastifyInstance } from "fastify";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { activateSubscriptionForInvoice } from "./billing.js";
 
 const eventSchema = z.object({
   id: z.string().min(1).max(255),
@@ -111,6 +112,9 @@ export function webhookRoutes(app: FastifyInstance, db: PrismaClient) {
         });
         if (succeeded) {
           await tx.invoice.update({ where: { id: payment.invoiceId }, data: { status: "PAID", paidAt: now } });
+          if (payment.invoice.subscriptionId) {
+            await activateSubscriptionForInvoice(tx, { tenantId: payment.tenantId, subscriptionId: payment.invoice.subscriptionId }, now);
+          }
         }
         await tx.webhookEvent.update({
           where: { id: stored.id },
