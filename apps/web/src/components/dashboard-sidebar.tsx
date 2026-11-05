@@ -7,6 +7,7 @@ const items = [
   {href:"/dashboard",label:"Tổng quan",icon:"⌂"},
   {href:"/dashboard/links",label:"Liên kết của tôi",icon:"↗"},
   {href:"/dashboard/domains",label:"Tên miền tùy chỉnh",icon:"◎"},
+  {href:"/billing/plans",label:"Gói dịch vụ & hạn mức",icon:"✦"},
   {href:"/profile",label:"Hồ sơ cá nhân",icon:"◉"}
 ];
 
