@@ -214,7 +214,7 @@ export function linkRoutes(app: FastifyInstance, db: PrismaClient) {
     const params = z.object({slug: slugSchema}).safeParse(req.params);
     if (!params.success) return reply.code(404).send({error: "Link not found"});
     const forwardedHost = req.headers["x-forwarded-host"] ?? req.headers.host ?? "";
-    const hostname = String(forwardedHost).split(",")[0].trim().replace(/:\\d+$/, "").toLowerCase();
+    const hostname = String(forwardedHost).split(",")[0].trim().replace(/:\d+$/, "").toLowerCase();
     const domain = hostname
       ? await db.domain.findFirst({where: {hostname}, select: {id: true, status: true, tlsStatus: true}})
       : null;
