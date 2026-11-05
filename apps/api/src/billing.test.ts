@@ -76,3 +76,23 @@ test("verified invoice payment activates its pending subscription and replaces t
   assert.equal(activated.currentPeriodStart.toISOString(), now.toISOString());
   assert.equal(activated.currentPeriodEnd.toISOString(), "2026-12-05T10:00:00.000Z");
 });
+
+
+test("active workspace subscription selects the paid plan and its own monthly period", async () => {
+  const start = new Date("2026-11-05T10:00:00.000Z");
+  const end = new Date("2026-12-05T10:00:00.000Z");
+  const db = {
+    subscription: { findFirst: async () => ({
+      id: "sub-pro", status: "ACTIVE", currentPeriodStart: start, currentPeriodEnd: end,
+      plan: { id: "pro", code: "PRO", name: "Pro", priceMinor: 249000, currency: "VND", interval: "MONTH",
+        entitlements: { linksPerMonth: 1000, trackedClicksPerMonth: 250000, qrPerMonth: 250, customDomains: 5, retentionDays: 365, seats: 3, features: [] } }
+    }) },
+    plan: { findUnique: async () => null }
+  } as unknown as PrismaClient;
+  const context = await getPlanContext(db, "tenant-a", new Date("2026-11-12T10:00:00.000Z"));
+  assert.equal(context.plan.code, "PRO");
+  assert.equal(context.plan.priceMinor, 249000);
+  assert.equal(context.plan.entitlements.customDomains, 5);
+  assert.equal(context.periodStart.toISOString(), start.toISOString());
+  assert.equal(context.periodEnd.toISOString(), end.toISOString());
+});
