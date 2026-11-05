@@ -1,1 +1,13 @@
-import type {MetadataRoute} from "next";export default function sitemap():MetadataRoute.Sitemap{return [{url:"https://funlink.com/",changeFrequency:"weekly",priority:1}]}
+import type {MetadataRoute} from "next";
+import {absoluteSiteUrl} from "../lib/site-url";
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  return [
+    {
+      url: absoluteSiteUrl("/"),
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 1
+    }
+  ];
+}
