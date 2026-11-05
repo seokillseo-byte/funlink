@@ -2,6 +2,7 @@ import {createHash, randomBytes} from "node:crypto";
 import type {FastifyInstance} from "fastify";
 import type {PrismaClient} from "@prisma/client";
 import {z} from "zod";
+import {getPlanContext} from "./billing.js";
 
 const sha256 = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
 const tenantParams = z.object({tenantId: z.string().min(1).max(64)});
@@ -133,6 +134,11 @@ export function linkRoutes(app: FastifyInstance, db: PrismaClient) {
       const campaign = await db.campaign.findFirst({where: {id: data.campaignId, tenantId: params.data.tenantId}, select: {id: true}});
       if (!campaign) return reply.code(400).send({error: "Campaign does not belong to this workspace"});
     }
+    const planContext = await getPlanContext(db, params.data.tenantId);
+    const linksUsed = await db.link.count({where: {tenantId: params.data.tenantId, createdAt: {gte: planContext.periodStart, lt: planContext.periodEnd}}});
+    if (linksUsed >= planContext.plan.entitlements.linksPerMonth) {
+      return reply.code(429).send({error: "Monthly link creation limit reached. Upgrade your FunLink plan to create more links.", code: "LINK_QUOTA_EXCEEDED", usage: {used: linksUsed, limit: planContext.plan.entitlements.linksPerMonth}});
+    }
     try {
       const link = await db.link.create({
         data: {
@@ -263,13 +269,19 @@ export function linkRoutes(app: FastifyInstance, db: PrismaClient) {
     const deviceType = /tablet|ipad/i.test(userAgent) ? "tablet" : /mobile|android|iphone/i.test(userAgent) ? "mobile" : "desktop";
     const ipSecret = process.env.CLICK_IP_HASH_SECRET;
     const ipHash = ipSecret && req.ip ? sha256(ipSecret + ":" + req.ip) : undefined;
-    await db.clickEvent.create({data: {
-      tenantId: link.tenantId,
-      linkId: link.id,
-      refererHost,
-      deviceType,
-      ...(ipHash ? {ipHash} : {})
-    }});
+    // Analytics quota never blocks redirects: once the tracked-click allowance is used,
+    // keep redirecting but stop recording additional analytics events for this period.
+    const planContext = await getPlanContext(db, link.tenantId);
+    const trackedClicks = await db.clickEvent.count({where: {tenantId: link.tenantId, occurredAt: {gte: planContext.periodStart, lt: planContext.periodEnd}}});
+    if (trackedClicks < planContext.plan.entitlements.trackedClicksPerMonth) {
+      await db.clickEvent.create({data: {
+        tenantId: link.tenantId,
+        linkId: link.id,
+        refererHost,
+        deviceType,
+        ...(ipHash ? {ipHash} : {})
+      }});
+    }
     return reply.redirect(link.targetUrl, link.redirectCode);
   });
 }
