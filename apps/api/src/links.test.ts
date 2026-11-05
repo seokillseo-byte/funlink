@@ -98,6 +98,27 @@ test("public redirect records a click and redirects to the stored destination", 
   await app.close();
 });
 
+test("public redirect resolves a slug mapped to an active custom domain", async () => {
+  let click: any;
+  const prisma = {
+    domain: {findFirst: async () => ({id: "domain-1", status: "ACTIVE", tlsStatus: "ACTIVE"})},
+    linkDomainSlug: {findFirst: async () => ({
+      link: {id: "link-custom", tenantId: "tenant-1", targetUrl: "https://example.com/custom", redirectCode: 301, status: "ACTIVE", expiresAt: null}
+    })},
+    clickEvent: {create: async ({data}: any) => {click = data;}}
+  } as unknown as PrismaClient;
+  const app = buildApp({config, logger: false, prisma});
+  const response = await app.inject({
+    method: "GET",
+    url: "/v1/redirect/brand-campaign",
+    headers: {"x-forwarded-host": "go.brand.example"}
+  });
+  assert.equal(response.statusCode, 301);
+  assert.equal(response.headers.location, "https://example.com/custom");
+  assert.equal(click.linkId, "link-custom");
+  await app.close();
+});
+
 test("public redirect returns 404 for an unknown or invalid slug", async () => {
   const prisma = {domain: {findFirst: async () => null}, link: {findFirst: async () => null}} as unknown as PrismaClient;
   const app = buildApp({config, logger: false, prisma});
