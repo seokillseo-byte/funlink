@@ -53,7 +53,10 @@ test("creating a domain returns the DNS TXT token once and stores only its hash"
   let saved: any;
   const db = {
     session: { findUnique: async () => activeSession },
+    subscription: { findFirst: async () => null },
+    plan: { findUnique: async () => ({ id: "starter", code: "STARTER", name: "Starter", priceMinor: 99000, currency: "VND", interval: "MONTH", entitlements: { linksPerMonth: 200, trackedClicksPerMonth: 50000, qrPerMonth: 50, customDomains: 1, retentionDays: 90, seats: 1, features: [] } }) },
     domain: {
+      count: async () => 0,
       create: async ({ data, select }: any) => {
         saved = data;
         return { id: "domain-1", hostname: data.hostname, status: data.status, verificationExpiresAt: data.verificationExpiresAt, createdAt: new Date() };
