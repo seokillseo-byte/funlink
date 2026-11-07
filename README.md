@@ -1,7 +1,5 @@
 # FunLink
 
-This repository is being rebuilt from the approved FunLink Master Development Blueprint.
+FunLink is being rebuilt from the approved Master Development Blueprint.
 
-Legacy implementation has been preserved under `archive/legacy/*` branches.
-
-No product code has been added yet.
+The active default branch is a clean documentation-first baseline. Legacy implementation branches were removed during repository cleanup; do not assume a recoverable legacy branch exists. The approved product and design specifications are maintained under `docs/`.
